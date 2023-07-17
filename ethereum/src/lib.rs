@@ -1,21 +1,13 @@
-use std::sync::Arc;
 use std::time::Duration;
 use std::time::SystemTime;
 
 use ethers::prelude::abigen;
-use ethers::prelude::decode_function_data;
-use ethers::prelude::signer::SignerMiddlewareError;
-use ethers::prelude::ContractError;
 use ethers::prelude::Http;
 use ethers::prelude::Provider;
 use ethers::prelude::SignerMiddleware;
-use ethers::providers::Middleware;
 use ethers::signers::LocalWallet;
-use ethers::signers::Signer;
 use ethers::types::Address;
-use ethers::types::TransactionRequest;
 use ethers::types::H256;
-use ethers::utils::hex::ToHex;
 use sha2::Digest;
 use sha2::Sha256;
 use thiserror::Error;
@@ -25,25 +17,27 @@ pub type Preimage = [u8; 32];
 pub type Hashlock = [u8; 32];
 
 pub struct EthereumContractManager {
-    provider: Provider<Http>,
+    client: SignerMiddleware<Provider<Http>, LocalWallet>,
     eth_contract_address: Address,
-    _erc20_contract_address: Address,
 }
 
 impl EthereumContractManager {
-    pub fn new(
+    pub async fn new(
+        wallet: LocalWallet,
         rpc_url: String,
         eth_contract_address: String,
-        erc20_contract_address: String,
     ) -> Result<Self, EthereumError> {
         let provider = parse_rpc_url(rpc_url)?;
+        let client = SignerMiddleware::new_with_provider_chain(provider.clone(), wallet.clone())
+            .await
+            .map_err(|e| EthereumError::WalletError {
+                detail: e.to_string(),
+            })?;
         let eth_contract_address = parse_address(eth_contract_address)?;
-        let _erc20_contract_address = parse_address(erc20_contract_address)?;
 
         Ok(Self {
-            provider,
+            client,
             eth_contract_address,
-            _erc20_contract_address,
         })
     }
 
@@ -55,27 +49,14 @@ impl EthereumContractManager {
 
     pub async fn new_contract(
         &self,
-        receiver: String,
+        receiver: Address,
         hashlock: Hashlock,
         timelock: u64,
     ) -> Result<ContractId, EthereumError> {
-        let wallet = "0xc48c03c85fe3d0996282ba5e501dd2682c2b8d8ab97e6b87081dff5cb0042fed"
-            .parse::<LocalWallet>()
-            .map_err(|e| EthereumError::WalletError {
-                detail: e.to_string(),
-            })?;
-        let client = SignerMiddleware::new_with_provider_chain(self.provider.clone(), wallet)
-            .await
-            .map_err(|e| EthereumError::WalletError {
-                detail: e.to_string(),
-            })?;
-
         // TODO: this should be generated only once
         abigen!(HashedTimelock, "abi/HashedTimelock.json");
 
-        let contract = HashedTimelock::new(self.eth_contract_address, client.into());
-
-        let receiver = parse_address(receiver)?;
+        let contract = HashedTimelock::new(self.eth_contract_address, self.client.clone().into());
 
         let timelock = SystemTime::now()
             .duration_since(SystemTime::UNIX_EPOCH)
@@ -89,60 +70,54 @@ impl EthereumContractManager {
             .value(1000);
 
         let receipt = tx.send().await.unwrap().await.unwrap();
-        println!("new_contract receipt: {receipt:#?}");
 
         // In solidity the first topic is the hash of the signature of the event
         // So "contractId" will be in second place on the topics of the "LogHTLCNew" event
         let contract_id: H256 = receipt.unwrap().logs[0].topics[1];
-        let contract_id_hex: String = contract_id.encode_hex();
-        println!("contract_id: {contract_id_hex}");
 
         Ok(contract_id.into())
     }
 
-    pub async fn refund(&self, contract_id: ContractId) -> Result<(), EthereumError> {
-        let wallet = "0xc48c03c85fe3d0996282ba5e501dd2682c2b8d8ab97e6b87081dff5cb0042fed"
-            .parse::<LocalWallet>()
-            .map_err(|e| EthereumError::WalletError {
-                detail: e.to_string(),
-            })?;
-        let client = SignerMiddleware::new_with_provider_chain(self.provider.clone(), wallet)
-            .await
-            .map_err(|e| EthereumError::WalletError {
-                detail: e.to_string(),
-            })?;
-
+    pub async fn withdraw(
+        &self,
+        contract_id: ContractId,
+        preimage: Preimage,
+    ) -> Result<(), EthereumError> {
         // TODO: this should be generated only once
         abigen!(HashedTimelock, "abi/HashedTimelock.json");
 
-        let contract = HashedTimelock::new(self.eth_contract_address, client.into());
+        let contract = HashedTimelock::new(self.eth_contract_address, self.client.clone().into());
 
-        let tx = contract.refund(contract_id);
-
-        let receipt = tx.send().await.unwrap().await.unwrap();
-        println!("refund receipt: {receipt:#?}");
+        let tx = contract.withdraw(contract_id, preimage);
+        tx.send().await.unwrap().await.unwrap();
 
         Ok(())
     }
 
-    pub async fn transfer(&self, to: String) -> Result<(), EthereumError> {
-        let wallet = "0xc48c03c85fe3d0996282ba5e501dd2682c2b8d8ab97e6b87081dff5cb0042fed"
-            .parse::<LocalWallet>()
-            .map_err(|e| EthereumError::WalletError {
-                detail: e.to_string(),
-            })?;
-        let from = wallet.address();
-        let to = parse_address(to)?;
-        let tx = TransactionRequest::new().to(to).value(1000).from(from);
-        let receipt = self
-            .provider
-            .send_transaction(tx, None)
-            .await
-            .unwrap()
-            .await
-            .unwrap();
-        println!("transfer receipt: {receipt:#?}");
+    pub async fn refund(&self, contract_id: ContractId) -> Result<(), EthereumError> {
+        // TODO: this should be generated only once
+        abigen!(HashedTimelock, "abi/HashedTimelock.json");
+
+        let contract = HashedTimelock::new(self.eth_contract_address, self.client.clone().into());
+
+        let tx = contract.refund(contract_id);
+        tx.send().await.unwrap().await.unwrap();
+
         Ok(())
+    }
+
+    pub async fn get_preimage(&self, contract_id: ContractId) -> Result<Preimage, EthereumError> {
+        // TODO: this should be generated only once
+        abigen!(HashedTimelock, "abi/HashedTimelock.json");
+
+        let contract = HashedTimelock::new(self.eth_contract_address, self.client.clone().into());
+
+        let res = contract.get_contract(contract_id).call().await.unwrap();
+
+        // In the return type of the "get_contract" solidity method, the "preimage" field has index 7
+        let preimage = res.7;
+
+        Ok(preimage)
     }
 }
 

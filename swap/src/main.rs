@@ -1,38 +1,64 @@
-use std::{thread, time};
-
-use ethereum::EthereumContractManager;
+use ethereum::{EthereumContractManager, Preimage};
+use ethers::signers::{LocalWallet, Signer};
 
 #[tokio::main]
 async fn main() {
+    // TODO: proper private key handling
+    let alice_wallet = "0xc48c03c85fe3d0996282ba5e501dd2682c2b8d8ab97e6b87081dff5cb0042fed"
+        .parse::<LocalWallet>()
+        .unwrap();
+    let bob_wallet = "0x08101179aab21e1b5c215e94b8eb7c9e829b0c5044d7ab85bf09196b1bb6c2da"
+        .parse::<LocalWallet>()
+        .unwrap();
+
     let rpc_url = "http://127.0.0.1:7545".to_string();
     let eth_contract_address = "0x4e34B1f6C49E23ff9eE1C9aDd85157b534FB2Df3".to_string();
-    let erc20_contract_address = "0xf59577F5af09705C83175C3e258E544A6EAa54B9".to_string();
 
-    let manager =
-        EthereumContractManager::new(rpc_url, eth_contract_address, erc20_contract_address)
+    // Alice locks her funds
+    let alice_manager = EthereumContractManager::new(
+        alice_wallet.clone(),
+        rpc_url.clone(),
+        eth_contract_address.clone(),
+    )
+    .await
+    .unwrap();
+    let preimage = build_preimage("foo".to_string());
+    let hashlock = EthereumContractManager::create_hashlock(preimage);
+    let alice_timelock = 100; // seconds
+    let alice_contract_id = alice_manager
+        .new_contract(bob_wallet.address(), hashlock, alice_timelock)
+        .await
+        .unwrap();
+
+    // Bob locks his funds
+    let bob_timelock = 50; // seconds, must be lower than Alice's timelock for Bob to have enough time to withdraw
+    let bob_manager =
+        EthereumContractManager::new(bob_wallet, rpc_url.clone(), eth_contract_address.clone())
+            .await
             .unwrap();
-
-    let preimage = "foo6";
-    let mut preimage_bytes = [0u8; 32];
-    preimage_bytes[..preimage.len()].copy_from_slice(preimage.as_bytes());
-
-    let hashlock = EthereumContractManager::create_hashlock(preimage_bytes);
-    let receiver = "0xCC4afed01b9042A39D49F58927cB5bB83Eb419AC".to_string();
-    let timelock = 10;
-
-    let contract_id = manager
-        .new_contract(receiver, hashlock, timelock)
+    let bob_contract_id = bob_manager
+        .new_contract(alice_wallet.address(), hashlock, bob_timelock)
         .await
         .unwrap();
 
-    thread::sleep(time::Duration::from_secs(20));
-
-    manager
-        .transfer("0x631c270c49AF711D70bB69eA0ed5d48fd72b78E2".to_string())
+    // Alice withdraws funds from Bob's contract, revealing the preimage in the process
+    alice_manager
+        .withdraw(bob_contract_id, preimage)
         .await
         .unwrap();
 
-    thread::sleep(time::Duration::from_secs(10));
+    // Bob retrieves the preimage
+    let retrieved_preimage = bob_manager.get_preimage(bob_contract_id).await.unwrap();
 
-    manager.refund(contract_id).await.unwrap();
+    // Bob withdraws funds from Alice's contract
+    bob_manager
+        .withdraw(alice_contract_id, retrieved_preimage)
+        .await
+        .unwrap();
+}
+
+fn build_preimage(str: String) -> Preimage {
+    let mut preimage = [0u8; 32];
+    preimage[..str.len()].copy_from_slice(str.as_bytes());
+    preimage
 }
