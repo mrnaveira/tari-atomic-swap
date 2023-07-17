@@ -13,6 +13,7 @@ use ethers::providers::Middleware;
 use ethers::signers::LocalWallet;
 use ethers::signers::Signer;
 use ethers::types::Address;
+use ethers::types::TransactionRequest;
 use ethers::types::H256;
 use ethers::utils::hex::ToHex;
 use sha2::Digest;
@@ -88,7 +89,7 @@ impl EthereumContractManager {
             .value(1000);
 
         let receipt = tx.send().await.unwrap().await.unwrap();
-        println!("receipt: {receipt:#?}");
+        println!("new_contract receipt: {receipt:#?}");
 
         // In solidity the first topic is the hash of the signature of the event
         // So "contractId" will be in second place on the topics of the "LogHTLCNew" event
@@ -119,8 +120,28 @@ impl EthereumContractManager {
         let tx = contract.refund(contract_id);
 
         let receipt = tx.send().await.unwrap().await.unwrap();
-        println!("receipt: {receipt:#?}");
+        println!("refund receipt: {receipt:#?}");
 
+        Ok(())
+    }
+
+    pub async fn transfer(&self, to: String) -> Result<(), EthereumError> {
+        let wallet = "0xc48c03c85fe3d0996282ba5e501dd2682c2b8d8ab97e6b87081dff5cb0042fed"
+            .parse::<LocalWallet>()
+            .map_err(|e| EthereumError::WalletError {
+                detail: e.to_string(),
+            })?;
+        let from = wallet.address();
+        let to = parse_address(to)?;
+        let tx = TransactionRequest::new().to(to).value(1000).from(from);
+        let receipt = self
+            .provider
+            .send_transaction(tx, None)
+            .await
+            .unwrap()
+            .await
+            .unwrap();
+        println!("transfer receipt: {receipt:#?}");
         Ok(())
     }
 }

@@ -27,5 +27,12 @@ async fn main() {
 
     thread::sleep(time::Duration::from_secs(20));
 
+    manager
+        .transfer("0x631c270c49AF711D70bB69eA0ed5d48fd72b78E2".to_string())
+        .await
+        .unwrap();
+
+    thread::sleep(time::Duration::from_secs(10));
+
     manager.refund(contract_id).await.unwrap();
 }
