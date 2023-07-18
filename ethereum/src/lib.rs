@@ -12,9 +12,10 @@ use sha2::Digest;
 use sha2::Sha256;
 use thiserror::Error;
 
-pub type ContractId = [u8; 32];
-pub type Preimage = [u8; 32];
-pub type Hashlock = [u8; 32];
+type ByteArray32 = [u8; 32];
+pub type ContractId = ByteArray32;
+pub type Preimage = ByteArray32;
+pub type Hashlock = ByteArray32;
 
 pub struct EthereumContractManager {
     client: SignerMiddleware<Provider<Http>, LocalWallet>,
@@ -112,11 +113,12 @@ impl EthereumContractManager {
 
         let contract = HashedTimelock::new(self.eth_contract_address, self.client.clone().into());
 
+        // We don't even need to submit a transaction into the network
+        // as the "call" operation will result in a state read in the provider
         let res = contract.get_contract(contract_id).call().await.unwrap();
 
         // In the return type of the "get_contract" solidity method, the "preimage" field has index 7
         let preimage = res.7;
-
         Ok(preimage)
     }
 }
