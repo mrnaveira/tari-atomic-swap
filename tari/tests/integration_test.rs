@@ -164,19 +164,17 @@ fn get_preimage(
     contract: ComponentAddress,
 ) -> Result<Option<Preimage>, anyhow::Error> {
     let result = test.template_test.execute_and_commit(
-        vec![
-            Instruction::CallMethod {
-                component_address: contract,
-                method: "get_preimage".to_string(),
-                args: args![],
-            },
-        ],
+        vec![Instruction::CallMethod {
+            component_address: contract,
+            method: "get_preimage".to_string(),
+            args: args![],
+        }],
         vec![],
     );
 
     let preimage = result.unwrap().finalize.execution_results[0]
-            .decode::<Option<Preimage>>()
-            .unwrap();
+        .decode::<Option<Preimage>>()
+        .unwrap();
     Ok(preimage)
 }
 
@@ -205,7 +203,9 @@ fn successful_swap() {
     withdraw_funds(&mut test, contract_2_component, preimage, alice).unwrap();
 
     // Bob gets the preimage after Alice reveals it
-    let revealed_preimage = get_preimage(&mut test, contract_2_component).unwrap().unwrap();
+    let revealed_preimage = get_preimage(&mut test, contract_2_component)
+        .unwrap()
+        .unwrap();
 
     // Bob now knows the preimage, so he can withdraw funds from Alice's contract
     withdraw_funds(&mut test, contract_1_component, revealed_preimage, bob).unwrap();

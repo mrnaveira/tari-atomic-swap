@@ -1,5 +1,9 @@
 use ethereum::{EthereumContractManager, Preimage};
-use ethers::signers::{LocalWallet, Signer};
+use ethers::{
+    signers::{LocalWallet, Signer},
+    types::U256,
+    utils::parse_units,
+};
 
 #[tokio::main]
 async fn main() {
@@ -22,11 +26,12 @@ async fn main() {
     )
     .await
     .unwrap();
+    let amount_wei: U256 = parse_units("1000", "wei").unwrap().into();
     let preimage = build_preimage("foo".to_string());
     let hashlock = EthereumContractManager::create_hashlock(preimage);
     let alice_timelock = 100; // seconds
     let alice_contract_id = alice_manager
-        .new_contract(bob_wallet.address(), hashlock, alice_timelock)
+        .new_contract(amount_wei, bob_wallet.address(), hashlock, alice_timelock)
         .await
         .unwrap();
 
@@ -37,7 +42,7 @@ async fn main() {
             .await
             .unwrap();
     let bob_contract_id = bob_manager
-        .new_contract(alice_wallet.address(), hashlock, bob_timelock)
+        .new_contract(amount_wei, alice_wallet.address(), hashlock, bob_timelock)
         .await
         .unwrap();
 

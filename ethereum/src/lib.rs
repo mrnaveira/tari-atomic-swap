@@ -8,6 +8,7 @@ use ethers::prelude::SignerMiddleware;
 use ethers::signers::LocalWallet;
 use ethers::types::Address;
 use ethers::types::H256;
+use ethers::types::U256;
 use sha2::Digest;
 use sha2::Sha256;
 use thiserror::Error;
@@ -50,6 +51,7 @@ impl EthereumContractManager {
 
     pub async fn new_contract(
         &self,
+        amount_wei: U256,
         receiver: Address,
         hashlock: Hashlock,
         timelock: u64,
@@ -69,7 +71,7 @@ impl EthereumContractManager {
         let tx = contract
             .new_contract(receiver, hashlock, timelock.into())
             // TODO: parameterize the amount to lock
-            .value(1000);
+            .value(amount_wei);
 
         let receipt = tx.send().await.unwrap().await.unwrap();
 
