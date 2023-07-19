@@ -7,15 +7,18 @@ edition = "2021"
 digest = "0.9"
 tari_crypto = { version = "0.17" }
 sha2 = { workspace = true }
-tari_dan_common_types = { git = "https://github.com/tari-project/tari-dan" }
-tari_dan_engine = { git = "https://github.com/tari-project/tari-dan" }
-tari_engine_types = { git = "https://github.com/tari-project/tari-dan" }
-tari_template_lib = { git = "https://github.com/tari-project/tari-dan" }
+tari_dan_common_types = { path = "../../tari-dan/dan_layer/common_types" }
+tari_dan_engine = { path = "../../tari-dan/dan_layer/engine" }
+tari_engine_types = { path = "../../tari-dan/dan_layer/engine_types" }
+tari_template_builtin = { path = "../../tari-dan/dan_layer/template_builtin" }
+tari_template_lib = { path = "../../tari-dan/dan_layer/template_lib" }
+tari_transaction = { path = "../../tari-dan/dan_layer/transaction" }
+tari_utilities = "=0.4.10"
+tari_wallet_daemon_client = { path = "../../tari-dan/clients/wallet_daemon_client" }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 anyhow = "1.0.72"
-serde = { version = "1.0.143", default-features = false, features = ["alloc", "derive"] }
-tari_bor = { git = "https://github.com/tari-project/tari-dan" }
-tari_template_builtin = { git = "https://github.com/tari-project/tari-dan" }
-tari_transaction = { git = "https://github.com/tari-project/tari-dan" }
-tari_transaction_manifest = { git = "https://github.com/tari-project/tari-dan" }
+serde = { version = "=1.0.164", default-features = false, features = ["alloc", "derive"] }
+tari_bor = { path = "../../tari-dan/dan_layer/tari_bor" }
+tari_transaction_manifest = { path = "../../tari-dan/dan_layer/transaction_manifest" }

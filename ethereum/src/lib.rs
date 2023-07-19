@@ -68,6 +68,7 @@ impl EthereumContractManager {
 
         let tx = contract
             .new_contract(receiver, hashlock, timelock.into())
+            // TODO: parameterize the amount to lock
             .value(1000);
 
         let receipt = tx.send().await.unwrap().await.unwrap();
