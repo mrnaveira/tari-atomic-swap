@@ -1,6 +1,7 @@
 use sha2::Digest;
 use sha2::Sha256;
 use tari_crypto::ristretto::RistrettoPublicKey;
+use tari_engine_types::commit_result::ExecuteResult;
 use tari_engine_types::component::new_component_address_from_parts;
 use tari_engine_types::instruction::Instruction;
 use tari_engine_types::substate::SubstateAddress;
@@ -201,6 +202,41 @@ impl TariContractManager {
         Ok(())
     }
 
+    pub async fn get_preimage(
+        &mut self,
+        contract: ComponentAddress,
+    ) -> Result<Option<Preimage>, TariError> {
+        let request = TransactionSubmitRequest {
+            // use the default signing key of the wallet
+            signing_key_index: None,
+            fee_instructions: vec![],
+            instructions: vec![Instruction::CallMethod {
+                component_address: contract,
+                method: "get_preimage".to_string(),
+                args: args![],
+            }],
+            inputs: vec![SubstateRequirement::new(
+                SubstateAddress::Component(contract),
+                None,
+            )],
+            override_inputs: false,
+            new_outputs: 0,
+            specific_non_fungible_outputs: vec![],
+            new_resources: vec![],
+            new_non_fungible_outputs: vec![],
+            new_non_fungible_index_outputs: vec![],
+            // This is a readonly operation
+            is_dry_run: true,
+            proof_ids: vec![],
+        };
+
+        let result = self.submit_dry_run_transaction(request).await?;
+        let preimage = result.finalize.execution_results[0]
+            .decode::<Option<Preimage>>()
+            .unwrap();
+        Ok(preimage)
+    }
+
     async fn submit_transaction(
         &mut self,
         request: TransactionSubmitRequest,
@@ -220,6 +256,15 @@ impl TariContractManager {
         }
 
         Ok(resp)
+    }
+
+    async fn submit_dry_run_transaction(
+        &mut self,
+        request: TransactionSubmitRequest,
+    ) -> Result<ExecuteResult, TariError> {
+        let resp = self.client.submit_transaction(&request).await?;
+        let result = resp.result.unwrap();
+        Ok(result)
     }
 
     fn get_account_address(public_key: &RistrettoPublicKey) -> ComponentAddress {

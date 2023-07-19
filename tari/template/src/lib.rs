@@ -48,7 +48,8 @@ mod atomic_swap_template {
             // enforce the security rules on the proper methods
             let rules = AccessRules::new()
                 .add_method_rule("withdraw", withdraw_rule)
-                .add_method_rule("refund", refund_rule);
+                .add_method_rule("refund", refund_rule)
+                .add_method_rule("get_preimage", AccessRule::AllowAll);
 
             Self {
                 locked_funds,
@@ -87,6 +88,10 @@ mod atomic_swap_template {
             self.receiver_token
                 .to_public_key()
                 .unwrap_or_else(|| panic!("receiver_token is not a valid public key: {}", self.receiver_token))
+        }
+
+        pub fn get_preimage(&self) -> Option<Preimage> {
+            self.preimage
         }
 
         fn check_hashlock(&self, preimage: &Preimage) {

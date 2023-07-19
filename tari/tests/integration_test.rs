@@ -1,5 +1,6 @@
 use sha2::Digest;
 use sha2::Sha256;
+use tari::Preimage;
 use tari_dan_engine::runtime::ConsensusContext;
 use tari_engine_types::{commit_result::ExecuteResult, instruction::Instruction};
 use tari_template_lib::constants::CONFIDENTIAL_TARI_RESOURCE_ADDRESS;
@@ -158,6 +159,27 @@ fn refund(
     )
 }
 
+fn get_preimage(
+    test: &mut AtomicSwapTest,
+    contract: ComponentAddress,
+) -> Result<Option<Preimage>, anyhow::Error> {
+    let result = test.template_test.execute_and_commit(
+        vec![
+            Instruction::CallMethod {
+                component_address: contract,
+                method: "get_preimage".to_string(),
+                args: args![],
+            },
+        ],
+        vec![],
+    );
+
+    let preimage = result.unwrap().finalize.execution_results[0]
+            .decode::<Option<Preimage>>()
+            .unwrap();
+    Ok(preimage)
+}
+
 // This test simulates an atomic swap between two accounts inside the Tari network.
 // Obviously atomic swaps inside the same network does not have any real world utility,
 // but for testing purposes it's useful as it allow us to verify the Tari atomic swap template
@@ -182,8 +204,11 @@ fn successful_swap() {
     // Alice withdraws the funds from Bob's contract, revealing the preimage in the process
     withdraw_funds(&mut test, contract_2_component, preimage, alice).unwrap();
 
+    // Bob gets the preimage after Alice reveals it
+    let revealed_preimage = get_preimage(&mut test, contract_2_component).unwrap().unwrap();
+
     // Bob now knows the preimage, so he can withdraw funds from Alice's contract
-    withdraw_funds(&mut test, contract_1_component, preimage, bob).unwrap();
+    withdraw_funds(&mut test, contract_1_component, revealed_preimage, bob).unwrap();
 }
 
 #[test]
