@@ -59,7 +59,7 @@ impl TariContractManager {
         hasher.finalize().into()
     }
 
-    pub async fn new_contract(
+    pub async fn create_lock_contract(
         &mut self,
         amount: i64,
         receiver_public_key: RistrettoPublicKey,
@@ -117,6 +117,88 @@ impl TariContractManager {
             .decode::<ComponentAddress>()
             .unwrap();
         Ok(component)
+    }
+
+    pub async fn withdraw_funds(
+        &mut self,
+        contract: ComponentAddress,
+        preimage: [u8; 32],
+    ) -> Result<(), TariError> {
+        let request = TransactionSubmitRequest {
+            // use the default signing key of the wallet
+            signing_key_index: None,
+            fee_instructions: vec![],
+            instructions: vec![
+                Instruction::CallMethod {
+                    component_address: contract,
+                    method: "withdraw".to_string(),
+                    args: args![preimage],
+                },
+                Instruction::PutLastInstructionOutputOnWorkspace {
+                    key: b"bucket".to_vec(),
+                },
+                Instruction::CallMethod {
+                    component_address: self.wallet_address,
+                    method: "deposit".to_string(),
+                    args: args![Variable("bucket")],
+                },
+            ],
+            inputs: vec![
+                SubstateRequirement::new(SubstateAddress::Component(contract), None),
+                SubstateRequirement::new(SubstateAddress::Component(self.wallet_address), None),
+            ],
+            override_inputs: false,
+            new_outputs: 0,
+            specific_non_fungible_outputs: vec![],
+            new_resources: vec![],
+            new_non_fungible_outputs: vec![],
+            new_non_fungible_index_outputs: vec![],
+            is_dry_run: false,
+            proof_ids: vec![],
+        };
+
+        self.submit_transaction(request).await?;
+
+        Ok(())
+    }
+
+    pub async fn refund(&mut self, contract: ComponentAddress) -> Result<(), TariError> {
+        let request = TransactionSubmitRequest {
+            // use the default signing key of the wallet
+            signing_key_index: None,
+            fee_instructions: vec![],
+            instructions: vec![
+                Instruction::CallMethod {
+                    component_address: contract,
+                    method: "refund".to_string(),
+                    args: args![],
+                },
+                Instruction::PutLastInstructionOutputOnWorkspace {
+                    key: b"bucket".to_vec(),
+                },
+                Instruction::CallMethod {
+                    component_address: self.wallet_address,
+                    method: "deposit".to_string(),
+                    args: args![Variable("bucket")],
+                },
+            ],
+            inputs: vec![
+                SubstateRequirement::new(SubstateAddress::Component(contract), None),
+                SubstateRequirement::new(SubstateAddress::Component(self.wallet_address), None),
+            ],
+            override_inputs: false,
+            new_outputs: 0,
+            specific_non_fungible_outputs: vec![],
+            new_resources: vec![],
+            new_non_fungible_outputs: vec![],
+            new_non_fungible_index_outputs: vec![],
+            is_dry_run: false,
+            proof_ids: vec![],
+        };
+
+        self.submit_transaction(request).await?;
+
+        Ok(())
     }
 
     async fn submit_transaction(
