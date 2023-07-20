@@ -19,8 +19,8 @@ use tari_transaction::TransactionId;
 use tari_utilities::ByteArray;
 use tari_wallet_daemon_client::error::WalletDaemonClientError;
 use tari_wallet_daemon_client::types::TransactionSubmitRequest;
-use tari_wallet_daemon_client::types::TransactionSubmitResponse;
 use tari_wallet_daemon_client::types::TransactionWaitResultRequest;
+use tari_wallet_daemon_client::types::TransactionWaitResultResponse;
 use tari_wallet_daemon_client::WalletDaemonClient;
 use thiserror::Error;
 
@@ -31,6 +31,7 @@ pub type Hashlock = ByteArray32;
 pub struct TariContractManager {
     client: WalletDaemonClient,
     wallet_public_key: RistrettoPublicKey,
+    wallet_public_key_index: u64,
     wallet_address: ComponentAddress,
     swap_template_address: TemplateAddress,
 }
@@ -39,6 +40,7 @@ impl TariContractManager {
     pub fn new(
         wallet_endpoint: String,
         wallet_public_key: RistrettoPublicKey,
+        wallet_public_key_index: u64,
         wallet_token: String,
         swap_template_address: TemplateAddress,
     ) -> Result<Self, TariError> {
@@ -48,6 +50,7 @@ impl TariContractManager {
         Ok(Self {
             client,
             wallet_public_key,
+            wallet_public_key_index,
             wallet_address,
             swap_template_address,
         })
@@ -71,8 +74,7 @@ impl TariContractManager {
         let receiver_owner_token = Self::get_owner_token(&receiver_public_key);
         let sender_owner_token = Self::get_owner_token(&self.wallet_public_key);
         let request = TransactionSubmitRequest {
-            // use the default signing key of the wallet
-            signing_key_index: None,
+            signing_key_index: Some(self.wallet_public_key_index),
             fee_instructions: vec![],
             instructions: vec![
                 Instruction::CallMethod {
@@ -114,7 +116,7 @@ impl TariContractManager {
 
         let response = self.submit_transaction(request).await?;
 
-        let component = response.result.unwrap().finalize.execution_results[2]
+        let component = response.result.unwrap().execution_results[2]
             .decode::<ComponentAddress>()
             .unwrap();
         Ok(component)
@@ -126,8 +128,7 @@ impl TariContractManager {
         preimage: [u8; 32],
     ) -> Result<(), TariError> {
         let request = TransactionSubmitRequest {
-            // use the default signing key of the wallet
-            signing_key_index: None,
+            signing_key_index: Some(self.wallet_public_key_index),
             fee_instructions: vec![],
             instructions: vec![
                 Instruction::CallMethod {
@@ -165,8 +166,7 @@ impl TariContractManager {
 
     pub async fn refund(&mut self, contract: ComponentAddress) -> Result<(), TariError> {
         let request = TransactionSubmitRequest {
-            // use the default signing key of the wallet
-            signing_key_index: None,
+            signing_key_index: Some(self.wallet_public_key_index),
             fee_instructions: vec![],
             instructions: vec![
                 Instruction::CallMethod {
@@ -207,8 +207,7 @@ impl TariContractManager {
         contract: ComponentAddress,
     ) -> Result<Option<Preimage>, TariError> {
         let request = TransactionSubmitRequest {
-            // use the default signing key of the wallet
-            signing_key_index: None,
+            signing_key_index: Some(self.wallet_public_key_index),
             fee_instructions: vec![],
             instructions: vec![Instruction::CallMethod {
                 component_address: contract,
@@ -240,7 +239,7 @@ impl TariContractManager {
     async fn submit_transaction(
         &mut self,
         request: TransactionSubmitRequest,
-    ) -> Result<TransactionSubmitResponse, TariError> {
+    ) -> Result<TransactionWaitResultResponse, TariError> {
         let resp = self.client.submit_transaction(&request).await?;
         let wait_resp = self
             .client
@@ -254,8 +253,7 @@ impl TariContractManager {
                 transaction_id: resp.transaction_id,
             });
         }
-
-        Ok(resp)
+        Ok(wait_resp)
     }
 
     async fn submit_dry_run_transaction(
