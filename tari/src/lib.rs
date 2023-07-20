@@ -120,7 +120,7 @@ impl TariContractManager {
         Ok(component)
     }
 
-    pub async fn withdraw_funds(
+    pub async fn withdraw(
         &mut self,
         contract: ComponentAddress,
         preimage: [u8; 32],

@@ -6,6 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ethers = { workspace = true }
+dotenv = "0.15.0"
+ethers = { workspace = true, features = ["abigen", "ws", "rustls", "ethers-solc"] }
 ethereum = { path = "../ethereum" }
+tari = { path = "../tari" }
+tari_crypto = { workspace = true }
+tari_template_lib = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
