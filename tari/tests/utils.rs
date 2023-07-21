@@ -1,12 +1,10 @@
 use anyhow::anyhow;
-use serde::de::DeserializeOwned;
 use std::sync::RwLock;
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
     sync::Arc,
 };
-use tari_bor::encode;
 use tari_crypto::{
     ristretto::RistrettoSecretKey,
     tari_utilities::{hex::Hex, ByteArray},
@@ -19,33 +17,23 @@ use tari_dan_engine::{
     fees::{FeeModule, FeeTable},
     packager::{LoadedTemplate, Package, TemplateModuleLoader},
     runtime::{AuthParams, ConsensusContext, RuntimeModule, RuntimeModuleError, StateTracker},
-    state_store::{
-        memory::{MemoryStateStore, MemoryWriteTransaction},
-        AtomicDb, StateReader, StateStoreError, StateWriter,
-    },
+    state_store::{memory::MemoryStateStore, AtomicDb, StateWriter},
     transaction::{TransactionError, TransactionProcessor},
-    wasm::{compile::compile_template, LoadedWasmTemplate, WasmModule},
+    wasm::{compile::compile_template, WasmModule},
 };
 use tari_engine_types::{
     commit_result::ExecuteResult,
-    component::{ComponentBody, ComponentHeader},
     hashing::template_hasher,
     instruction::Instruction,
-    resource_container::ResourceContainer,
-    substate::{Substate, SubstateAddress, SubstateDiff},
-    vault::Vault,
+    substate::{SubstateAddress, SubstateDiff},
 };
 use tari_template_builtin::{get_template_builtin, ACCOUNT_TEMPLATE_ADDRESS};
 use tari_template_lib::{
     args,
-    args::Arg,
     crypto::RistrettoPublicKeyBytes,
     models::{Amount, ComponentAddress, NonFungibleAddress, TemplateAddress},
-    prelude::{AccessRules, CONFIDENTIAL_TARI_RESOURCE_ADDRESS},
-    Hash,
 };
-use tari_transaction::{id_provider::IdProvider, Transaction};
-use tari_transaction_manifest::{parse_manifest, ManifestValue};
+use tari_transaction::Transaction;
 
 pub struct TemplateTest {
     package: Arc<Package>,
@@ -111,53 +99,9 @@ impl TemplateTest {
         }
     }
 
-    pub fn enable_fees(&mut self) -> &mut Self {
-        self.enable_fees = true;
-        self
-    }
-
-    pub fn disable_fees(&mut self) -> &mut Self {
-        self.enable_fees = false;
-        self
-    }
-
-    pub fn fee_table(&self) -> &FeeTable {
-        &self.fee_table
-    }
-
-    pub fn set_fee_table(&mut self, fee_table: FeeTable) -> &mut Self {
-        self.fee_table = fee_table;
-        self
-    }
-
     pub fn set_consensus_context(&mut self, consensus: ConsensusContext) -> &mut Self {
         self.consensus_context = consensus;
         self
-    }
-
-    pub fn read_only_state_store(&self) -> ReadOnlyStateStore {
-        ReadOnlyStateStore::new(self.state_store.clone())
-    }
-
-    pub fn default_signing_key(&self) -> &RistrettoSecretKey {
-        &self.secret_key
-    }
-
-    pub fn assert_calls(&self, expected: &[&'static str]) {
-        let calls = self.track_calls.get();
-        assert_eq!(calls, expected);
-    }
-
-    pub fn clear_calls(&self) {
-        self.track_calls.clear();
-    }
-
-    pub fn get_previous_output_address(&self, ty: SubstateType) -> SubstateAddress {
-        self.last_outputs
-            .iter()
-            .find(|addr| ty.matches(addr))
-            .cloned()
-            .unwrap_or_else(|| panic!("No output of type {:?}", ty))
     }
 
     fn commit_diff(&mut self, diff: &SubstateDiff) {
@@ -178,84 +122,11 @@ impl TemplateTest {
         tx.commit().unwrap();
     }
 
-    pub fn get_module(&self, module_name: &str) -> &LoadedWasmTemplate {
-        let addr = self.name_to_template.get(module_name).unwrap();
-        match self.package.get_template_by_address(addr).unwrap() {
-            LoadedTemplate::Wasm(wasm) => wasm,
-            LoadedTemplate::Flow(_) => {
-                panic!("Not supported")
-            }
-        }
-    }
-
     pub fn get_template_address(&self, name: &str) -> TemplateAddress {
         *self
             .name_to_template
             .get(name)
             .unwrap_or_else(|| panic!("No template with name {}", name))
-    }
-
-    pub fn call_function<T>(
-        &mut self,
-        template_name: &str,
-        func_name: &str,
-        args: Vec<Arg>,
-        proofs: Vec<NonFungibleAddress>,
-    ) -> T
-    where
-        T: DeserializeOwned,
-    {
-        let result = self
-            .execute_and_commit(
-                vec![Instruction::CallFunction {
-                    template_address: self.get_template_address(template_name),
-                    function: func_name.to_owned(),
-                    args,
-                }],
-                proofs,
-            )
-            .unwrap();
-        result.finalize.execution_results[0].decode().unwrap()
-    }
-
-    pub fn call_method<T>(
-        &mut self,
-        component_address: ComponentAddress,
-        method_name: &str,
-        args: Vec<Arg>,
-        proofs: Vec<NonFungibleAddress>,
-    ) -> T
-    where
-        T: DeserializeOwned,
-    {
-        let result = self
-            .execute_and_commit(
-                vec![Instruction::CallMethod {
-                    component_address,
-                    method: method_name.to_owned(),
-                    args,
-                }],
-                proofs,
-            )
-            .unwrap();
-
-        result.finalize.execution_results[0].decode().unwrap()
-    }
-
-    pub fn create_empty_account(
-        &mut self,
-    ) -> (ComponentAddress, NonFungibleAddress, RistrettoSecretKey) {
-        let (owner_proof, secret_key) = self.create_owner_proof();
-        let old_fail_fees = self.enable_fees;
-        self.enable_fees = false;
-        let component = self.call_function(
-            "Account",
-            "create",
-            args![owner_proof],
-            vec![owner_proof.clone()],
-        );
-        self.enable_fees = old_fail_fees;
-        (component, owner_proof, secret_key)
     }
 
     pub fn create_owned_account(
@@ -356,18 +227,6 @@ impl TemplateTest {
         Ok(result)
     }
 
-    pub fn try_execute_and_commit(
-        &mut self,
-        transaction: Transaction,
-        proofs: Vec<NonFungibleAddress>,
-    ) -> Result<ExecuteResult, TransactionError> {
-        let result = self.try_execute(transaction, proofs)?;
-        if let Some(diff) = result.finalize.result.accept() {
-            self.commit_diff(diff);
-        }
-        Ok(result)
-    }
-
     pub fn execute_and_commit(
         &mut self,
         instructions: Vec<Instruction>,
@@ -399,78 +258,6 @@ impl TemplateTest {
 
         Ok(result)
     }
-
-    pub fn execute_and_commit_manifest<'a, I: IntoIterator<Item = (&'a str, ManifestValue)>>(
-        &mut self,
-        manifest: &str,
-        variables: I,
-        proofs: Vec<NonFungibleAddress>,
-    ) -> anyhow::Result<ExecuteResult> {
-        let template_imports = self
-            .name_to_template
-            .iter()
-            // Account is implicitly imported.
-            .filter(|(name, _)| *name != "Account")
-            .map(|(name, addr)| format!("use template_{} as {};", addr, name))
-            .collect::<Vec<_>>()
-            .join("\n");
-        let manifest = format!("{} fn main() {{ {} }}", template_imports, manifest);
-        let instructions = parse_manifest(
-            &manifest,
-            variables
-                .into_iter()
-                .map(|(a, b)| (a.to_string(), b))
-                .collect(),
-        )
-        .unwrap();
-        self.execute_and_commit(instructions, proofs)
-    }
-}
-
-pub struct ReadOnlyStateStore {
-    store: MemoryStateStore,
-}
-impl ReadOnlyStateStore {
-    pub fn new(store: MemoryStateStore) -> Self {
-        Self { store }
-    }
-
-    pub fn get_component(
-        &self,
-        component_address: ComponentAddress,
-    ) -> Result<ComponentHeader, StateStoreError> {
-        let substate = self.get_substate(&SubstateAddress::Component(component_address))?;
-        Ok(substate.into_substate_value().into_component().unwrap())
-    }
-
-    pub fn get_substate(&self, address: &SubstateAddress) -> Result<Substate, StateStoreError> {
-        let tx = self.store.read_access()?;
-        let substate = tx.get_state::<_, Substate>(address)?;
-        Ok(substate)
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum SubstateType {
-    Component,
-    Resource,
-    Vault,
-    NonFungible,
-    NonFungibleIndex,
-}
-
-impl SubstateType {
-    pub fn matches(&self, addr: &SubstateAddress) -> bool {
-        #[allow(clippy::match_like_matches_macro)]
-        match (self, addr) {
-            (SubstateType::Component, SubstateAddress::Component(_)) => true,
-            (SubstateType::Resource, SubstateAddress::Resource(_)) => true,
-            (SubstateType::Vault, SubstateAddress::Vault(_)) => true,
-            (SubstateType::NonFungible, SubstateAddress::NonFungible(_)) => true,
-            (SubstateType::NonFungibleIndex, SubstateAddress::NonFungibleIndex(_)) => true,
-            _ => false,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -485,10 +272,12 @@ impl TrackCallsModule {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get(&self) -> Vec<&'static str> {
         self.calls.read().unwrap().clone()
     }
 
+    #[allow(dead_code)]
     pub fn clear(&self) {
         self.calls.write().unwrap().clear();
     }
