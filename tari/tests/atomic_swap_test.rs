@@ -30,8 +30,10 @@ struct AtomicSwapTest {
 }
 
 fn setup() -> AtomicSwapTest {
-    let mut template_test =
-        TemplateTest::new(vec![concat!(env!("CARGO_MANIFEST_DIR"), "/template/")]);
+    let mut template_test = TemplateTest::new(vec![concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/templates/atomic_swap"
+    )]);
     let atomic_swap_template = template_test.get_template_address("HashedTimelock");
 
     // Create Alice and Bob accounts
