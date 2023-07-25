@@ -8,7 +8,7 @@ use utils::TemplateTest;
 mod utils;
 
 // struct definition inside the "lp_position" template
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
 pub struct Position {
     pub provided_token: String,
     pub provided_token_balance: u64,
@@ -137,6 +137,20 @@ fn get_positions(test: &mut LpTest, user_index: usize) -> Vec<Position> {
     result.finalize.execution_results[0].decode().unwrap()
 }
 
+fn replace_positions(test: &mut LpTest, user_index: usize, positions: Vec<Position>) {
+    let user = test.users[user_index].clone();
+    test.template_test
+        .execute_and_commit(
+            vec![Instruction::CallMethod {
+                component_address: user.position_component,
+                method: "replace_positions".to_string(),
+                args: args![positions],
+            }],
+            vec![user.owner_token],
+        )
+        .unwrap();
+}
+
 #[test]
 fn it_allows_to_add_and_remove_positions() {
     // setup a index with one lp registered
@@ -166,6 +180,49 @@ fn it_allows_to_add_and_remove_positions() {
     remove_position(&mut test, alice_index, 0);
     let positions = get_positions(&mut test, alice_index);
     assert!(positions.is_empty());
+}
+
+#[test]
+fn it_allows_to_replace_positions() {
+    // setup a index with one lp registered
+    let mut test = setup();
+    register_lp(&mut test, "http://alice".to_owned());
+    let alice_index = 0;
+
+    // initial state for a user is empty
+    let positions = get_positions(&mut test, alice_index);
+    assert!(positions.is_empty());
+
+    // adding a new position
+    add_position(
+        &mut test,
+        alice_index,
+        Position {
+            provided_token: "tari".to_string(),
+            provided_token_balance: 100000,
+            requested_token: "eth_wei".to_string(),
+            requested_token_balance: 20000,
+        },
+    );
+
+    // replace positions
+    let new_positions = vec![
+        Position {
+            provided_token: "tari".to_string(),
+            provided_token_balance: 100001,
+            requested_token: "eth_wei".to_string(),
+            requested_token_balance: 20001,
+        },
+        Position {
+            provided_token: "tari".to_string(),
+            provided_token_balance: 100002,
+            requested_token: "eth_wei".to_string(),
+            requested_token_balance: 20002,
+        },
+    ];
+    replace_positions(&mut test, alice_index, new_positions.clone());
+    let positions = get_positions(&mut test, alice_index);
+    assert_eq!(new_positions, positions);
 }
 
 #[test]

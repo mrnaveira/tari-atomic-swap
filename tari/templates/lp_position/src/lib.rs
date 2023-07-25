@@ -59,5 +59,9 @@ mod lp_position_template {
         pub fn remove_position(&mut self, index: usize) {
             self.positions.remove(index);
         }
+
+        pub fn replace_positions(&mut self, positions: Vec<Position>) {
+            self.positions = positions;
+        }
     }
 }

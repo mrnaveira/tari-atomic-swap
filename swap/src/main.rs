@@ -10,7 +10,7 @@ use ethers::{
     utils::parse_units,
 };
 use std::env;
-use tari::TariContractManager;
+use tari::contract::TariContractManager;
 use tari_crypto::ristretto::RistrettoPublicKey;
 use tari_crypto::tari_utilities::hex::Hex;
 use tari_template_lib::prelude::TemplateAddress;

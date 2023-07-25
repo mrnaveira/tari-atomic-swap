@@ -1,6 +1,6 @@
 use sha2::Digest;
 use sha2::Sha256;
-use tari::Preimage;
+use tari::contract::Preimage;
 use tari_dan_engine::runtime::ConsensusContext;
 use tari_engine_types::{commit_result::ExecuteResult, instruction::Instruction};
 use tari_template_lib::constants::CONFIDENTIAL_TARI_RESOURCE_ADDRESS;

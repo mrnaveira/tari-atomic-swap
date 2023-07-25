@@ -99,6 +99,7 @@ impl TemplateTest {
         }
     }
 
+    #[allow(dead_code)]
     pub fn set_consensus_context(&mut self, consensus: ConsensusContext) -> &mut Self {
         self.consensus_context = consensus;
         self
