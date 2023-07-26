@@ -1,0 +1,16 @@
+[package]
+name = "liquidity_daemon"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ethers = { workspace = true, features = ["abigen", "ws", "rustls", "ethers-solc"] }
+ethereum = { path = "../../networks/ethereum" }
+serde = { version = "=1.0.164" }
+serde_json = "1.0.85"
+tari = { path = "../../networks/tari" }
+tari_crypto = { workspace = true }
+tari_template_lib = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
