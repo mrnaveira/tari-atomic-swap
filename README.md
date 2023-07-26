@@ -27,11 +27,12 @@ There are a couple of possible problems when running it:
 
 Prerequisites:
 * You need to have access to a wallet daemon connected to a Tari network. The wallet must have two accounts (Alice and Bob) with enough funds for the swap.
-* Deploy the atomic swap template under `./tari/template`.
+* Deploy the atomic swap template under `./networks/tari/templates/atomic_swap`.
 
 ### Running the swap
 
 With all the previous steps in place:
+* Move to the swap application: `$ cd applications/swap`
 * Create a `dotenv` file with the configuration: `$ cp .env.example .env`
 * Set the values of all the required variables in the `.env` file.
 * Run `cargo run`

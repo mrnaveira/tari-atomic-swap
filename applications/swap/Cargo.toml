@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 dotenv = "0.15.0"
 ethers = { workspace = true, features = ["abigen", "ws", "rustls", "ethers-solc"] }
-ethereum = { path = "../ethereum" }
-tari = { path = "../tari" }
+ethereum = { path = "../../networks/ethereum" }
+tari = { path = "../../networks/tari" }
 tari_crypto = { workspace = true }
 tari_template_lib = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

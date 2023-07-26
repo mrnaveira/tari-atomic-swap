@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "ethereum",
-    "swap",
-    "tari"
+    "applications/swap",
+    "networks/ethereum",
+    "networks/tari"
 ]
 exclude = ["tari/template"]
 
