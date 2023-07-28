@@ -18,7 +18,7 @@ use tari_wallet_daemon_client::WalletDaemonClient;
 use thiserror::Error;
 
 // struct definition inside the "lp_position" template
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Eq, PartialEq)]
 pub struct Position {
     pub provided_token: String,
     pub provided_token_balance: u64,
@@ -28,10 +28,10 @@ pub struct Position {
 
 pub struct TariLiquidityManager {
     client: WalletDaemonClient,
-    wallet_public_key: RistrettoPublicKey,
-    wallet_public_key_index: u64,
-    lp_index_component: ComponentAddress,
-    lp_position_component: Option<ComponentAddress>,
+    pub wallet_public_key: RistrettoPublicKey,
+    pub wallet_public_key_index: u64,
+    pub lp_index_component: ComponentAddress,
+    pub lp_position_component: Option<ComponentAddress>,
 }
 
 impl TariLiquidityManager {
@@ -95,7 +95,7 @@ impl TariLiquidityManager {
             return Err(TariLiquidityManagerError::AlreadyRegistered);
         }
 
-        let owner_token = Self::get_owner_token(&self.wallet_public_key);
+        let owner_token = self.build_owner_token();
         let request = TransactionSubmitRequest {
             signing_key_index: None,
             fee_instructions: vec![],
@@ -363,7 +363,8 @@ impl TariLiquidityManager {
         Ok(result)
     }
 
-    fn get_owner_token(public_key: &RistrettoPublicKey) -> NonFungibleAddress {
+    pub fn build_owner_token(&self) -> NonFungibleAddress {
+        let public_key = &self.wallet_public_key;
         NonFungibleAddress::from_public_key(
             RistrettoPublicKeyBytes::from_bytes(public_key.as_bytes()).unwrap(),
         )

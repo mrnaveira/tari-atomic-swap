@@ -4,26 +4,27 @@ use tari::liquidity::Position;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
-    ethereum: EthereumConfig,
-    tari: TariConfig,
-    positions: Vec<Position>,
+    pub network_address: String,
+    pub ethereum: EthereumConfig,
+    pub tari: TariConfig,
+    pub positions: Vec<Position>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EthereumConfig {
-    rpc_url: String,
-    private_key: String,
-    contract_address: String,
+    pub rpc_url: String,
+    pub private_key: String,
+    pub contract_address: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TariConfig {
-    public_key: String,
-    public_key_index: u64,
-    wallet_endpoint: String,
-    wallet_token: String,
-    swap_template: String,
-    liquidity_component: String,
+    pub public_key: String,
+    pub public_key_index: u64,
+    pub wallet_endpoint: String,
+    pub wallet_token: String,
+    pub swap_template: String,
+    pub liquidity_component: String,
 }
 
 impl Config {
