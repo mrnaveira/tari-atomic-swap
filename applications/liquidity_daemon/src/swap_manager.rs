@@ -1,0 +1,206 @@
+use std::str::FromStr;
+use std::sync::Arc;
+
+use crate::position_manager::PositionManager;
+use anyhow::anyhow;
+use anyhow::bail;
+use ethereum::EthereumContractManager;
+use ethers::types::Address;
+use ethers::utils::hex;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use tari::{contract::TariContractManager, liquidity::Position};
+use tari_crypto::ristretto::RistrettoPublicKey;
+use tari_crypto::tari_utilities::hex::Hex;
+use tari_template_lib::prelude::ComponentAddress;
+use tokio::sync::RwLock;
+use uuid::Uuid;
+
+pub type ContractId = String;
+pub type Preimage = [u8; 32];
+pub type Hashlock = [u8; 32];
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Proposal {
+    client_address: String,
+    hashlock: Hashlock,
+    position: Position,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+enum SwapState {
+    NotStarted(Proposal),
+    Pending(PendingSwap),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct PendingSwap {
+    client_contract_id: ContractId,
+    our_contract_id: ContractId,
+    proposal: Proposal,
+}
+
+pub type SwapId = Uuid;
+type SwapKvMap = HashMap<SwapId, SwapState>;
+
+pub struct SwapManager {
+    // TODO: use a database to not lose ongoing swap information on restarts
+    swaps: Arc<RwLock<SwapKvMap>>,
+    position_manager: PositionManager,
+    eth_manager: EthereumContractManager,
+    tari_manager: Arc<RwLock<TariContractManager>>,
+}
+
+impl SwapManager {
+    pub fn new(
+        position_manager: PositionManager,
+        eth_manager: EthereumContractManager,
+        tari_manager: TariContractManager,
+    ) -> Self {
+        Self {
+            swaps: Arc::new(RwLock::new(HashMap::new())),
+            position_manager,
+            eth_manager,
+            tari_manager: Arc::new(RwLock::new(tari_manager)),
+        }
+    }
+
+    pub async fn request_swap(&self, proposal: Proposal) -> Result<SwapId, anyhow::Error> {
+        if self
+            .position_manager
+            .is_swap_proposal_valid(&proposal.position)
+            .await
+        {
+            let swap_id = Uuid::new_v4();
+            let swap_state = SwapState::NotStarted(proposal);
+            let mut guard = self.swaps.write().await;
+            guard.insert(swap_id, swap_state);
+            Ok(swap_id)
+        } else {
+            bail!("Invalid proposal");
+        }
+    }
+
+    pub async fn request_lock_funds(
+        &self,
+        swap_id: String,
+        contract_id: ContractId,
+    ) -> Result<ContractId, anyhow::Error> {
+        let swap_id = SwapId::from_str(&swap_id)?;
+        let swap_state = self.get_swap_state(&swap_id).await?;
+
+        let mut write_guard = self.swaps.write().await;
+
+        match swap_state {
+            SwapState::NotStarted(proposal) => {
+                self.validate_contract_id(&contract_id, &proposal).await?;
+                let our_contract_id = self.create_lock_contract(&proposal).await?;
+                write_guard.insert(
+                    swap_id,
+                    SwapState::Pending(PendingSwap {
+                        client_contract_id: contract_id,
+                        our_contract_id: our_contract_id.clone(),
+                        proposal: proposal.clone(),
+                    }),
+                );
+                Ok(our_contract_id)
+            }
+            _ => bail!("Funds alredy locked"),
+        }
+    }
+
+    pub async fn push_preimage(
+        &self,
+        swap_id: String,
+        preimage: Preimage,
+    ) -> Result<(), anyhow::Error> {
+        // TODO: we need a constant polling process watching the network to not rely on the client sending the preimage
+        let swap_id = SwapId::from_str(&swap_id)?;
+        let swap_state = self.get_swap_state(&swap_id).await?;
+
+        let mut write_guard = self.swaps.write().await;
+
+        match swap_state {
+            SwapState::Pending(pending) => {
+                self.withdraw_funds(&pending, preimage).await?;
+                write_guard.remove(&swap_id);
+                // TODO: update published balances
+                Ok(())
+            }
+            _ => bail!("Swap has not started yet"),
+        }
+    }
+
+    async fn get_swap_state(&self, swap_id: &SwapId) -> Result<SwapState, anyhow::Error> {
+        let read_guard = self.swaps.read().await;
+        let state = read_guard
+            .get(swap_id)
+            .ok_or_else(|| anyhow!("Invalid swap_id"))?;
+        Ok(state.to_owned())
+    }
+
+    async fn validate_contract_id(
+        &self,
+        _contract_id: &ContractId,
+        _proposal: &Proposal,
+    ) -> Result<(), anyhow::Error> {
+        // TODO: implement on-chain validation of the contract id, to check that the client did lock the funds as expected
+
+        Ok(())
+    }
+
+    async fn create_lock_contract(&self, proposal: &Proposal) -> Result<ContractId, anyhow::Error> {
+        // TODO: create enums and parsing logic for each type of token
+        match proposal.position.requested_token.as_str() {
+            "eth.wei" => {
+                let amount_wei = proposal.position.requested_token_balance;
+                let receiver = proposal.client_address.parse::<Address>()?;
+                let hashlock = proposal.hashlock;
+                // TODO: constant for timelocks
+                let timelock = 100;
+                let contract_id = self
+                    .eth_manager
+                    .new_contract(amount_wei.into(), receiver, hashlock, timelock)
+                    .await?;
+                Ok(hex::encode(contract_id))
+            }
+            "tari" => {
+                let mut write_guard = self.tari_manager.write().await;
+                let amount_tari: i64 = proposal.position.requested_token_balance.try_into()?;
+                let receiver = RistrettoPublicKey::from_hex(&proposal.client_address)?;
+                let hashlock = proposal.hashlock;
+                // TODO: constant for timelocks
+                let timelock = 100;
+                let contract_id = write_guard
+                    .create_lock_contract(amount_tari, receiver, hashlock, timelock)
+                    .await?;
+                Ok(contract_id.to_string())
+            }
+            _ => bail!("Invalid token type"),
+        }
+    }
+
+    async fn withdraw_funds(
+        &self,
+        pending_swap: &PendingSwap,
+        preimage: Preimage,
+    ) -> Result<(), anyhow::Error> {
+        // TODO: create enums and parsing logic for each type of token
+        match pending_swap.proposal.position.requested_token.as_str() {
+            "eth.wei" => {
+                let contract_id: [u8; 32] = hex::decode(&pending_swap.client_contract_id)?
+                    .try_into()
+                    .map_err(|_| anyhow!("Invalid contract_id"))?;
+                self.eth_manager.withdraw(contract_id, preimage).await?;
+                Ok(())
+            }
+            "tari" => {
+                let mut write_guard = self.tari_manager.write().await;
+                let contract_id = ComponentAddress::from_str(&pending_swap.client_contract_id)?;
+                write_guard.withdraw(contract_id, preimage).await?;
+                Ok(())
+            }
+            _ => bail!("Invalid token type"),
+        }
+    }
+}

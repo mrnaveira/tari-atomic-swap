@@ -1,0 +1,24 @@
+{
+    "network_address": "http://127.0.0.1:8000",
+    "ethereum": {
+        "rpc_url": "http://127.0.0.1:7545",
+        "private_key": "0x0000000000000000000000000000000000000000000000000000000000000000",
+        "contract_address": "0x0000000000000000000000000000000000000000"
+    },
+    "tari": {
+        "public_key": "0000000000000000000000000000000000000000000000000000000000000000",
+        "public_key_index": 1,
+        "wallet_endpoint": "http://127.0.0.1:9000",
+        "wallet_token": "e000",
+        "swap_template": "0000000000000000000000000000000000000000000000000000000000000000",
+        "liquidity_component": "component_0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "positions": [
+        {
+            "provided_token": "eth.wei",
+            "provided_token_balance": 10000,
+            "requested_token": "tari",
+            "requested_token_balance": 1000
+        }
+    ]
+}
