@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use tari::liquidity::TariLiquidityManager;
+use tari::liquidity::{Position, TariLiquidityManager};
 use tari_crypto::{ristretto::RistrettoPublicKey, tari_utilities::hex::Hex};
 use tari_template_lib::prelude::ComponentAddress;
 
@@ -69,5 +69,18 @@ impl PositionManager {
 
     fn is_registered(&mut self) -> bool {
         self.tari_manager.lp_position_component.is_some()
+    }
+
+    pub fn get_positions(&self) -> Vec<Position> {
+        self.config.positions.clone()
+    }
+
+    pub async fn is_swap_proposal_valid(&self, proposal: &Position) -> bool {
+        self.get_positions().iter().any(|p| {
+            p.provided_token == proposal.requested_token
+                && p.provided_token_balance <= proposal.requested_token_balance
+                && p.requested_token == proposal.provided_token
+                && p.requested_token_balance <= proposal.provided_token_balance
+        })
     }
 }
