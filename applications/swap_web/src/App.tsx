@@ -49,32 +49,6 @@ export default function App() {
             </Typography>
           </Stack>
 
-          <nav>
-            <Button
-              variant="button"
-              color="text.primary"
-              href="#"
-              sx={{ my: 1, mx: 1.5, textTransform: 'none' }}
-            >
-              Swap
-            </Button>
-            <Button
-              variant="button"
-              color="text.primary"
-              href="#"
-              sx={{ my: 1, mx: 1.5, textTransform: 'none' }}
-            >
-              Liquidity
-            </Button>
-            <Button
-              variant="button"
-              color="text.primary"
-              href="#"
-              sx={{ my: 1, mx: 1.5, textTransform: 'none' }}
-            >
-              Analytics
-            </Button>
-          </nav>
           <Button href="#" variant="contained" sx={{ my: 1, mx: 1.5, borderRadius: 8, textTransform: 'none' }}>
             Connect wallet
           </Button>
