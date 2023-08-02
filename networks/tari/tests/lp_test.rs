@@ -16,6 +16,13 @@ pub struct Position {
     pub requested_token_balance: u64,
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ProviderPosition {
+    network_address: String,
+    owner_token: NonFungibleAddress,
+    positions: Vec<Position>,
+}
+
 #[derive(Clone)]
 struct User {
     owner_token: NonFungibleAddress,
@@ -151,6 +158,21 @@ fn replace_positions(test: &mut LpTest, user_index: usize, positions: Vec<Positi
         .unwrap();
 }
 
+fn get_all_provider_positions(test: &mut LpTest) -> Vec<ProviderPosition> {
+    let result = test
+        .template_test
+        .execute_and_commit(
+            vec![Instruction::CallMethod {
+                component_address: test.lp_index_component,
+                method: "get_all_provider_positions".to_string(),
+                args: args![],
+            }],
+            vec![],
+        )
+        .unwrap();
+    result.finalize.execution_results[0].decode().unwrap()
+}
+
 #[test]
 fn it_allows_to_add_and_remove_positions() {
     // setup a index with one lp registered
@@ -255,4 +277,50 @@ fn it_does_not_allow_updates_from_undesignated_users() {
 
     // Bob should not be able to update Alice's positions
     assert!(err.to_string().contains("Access Denied"));
+}
+
+#[test]
+fn it_does_get_all_positions() {
+    // setup a index with two providers
+    let mut test = setup();
+    register_lp(&mut test, "http://alice".to_owned());
+    register_lp(&mut test, "http://bob".to_owned());
+
+    // add multiple positions for different providers
+    add_position(
+        &mut test,
+        0,
+        Position {
+            provided_token: "tari".to_string(),
+            provided_token_balance: 100000,
+            requested_token: "eth_wei".to_string(),
+            requested_token_balance: 20000,
+        },
+    );
+    add_position(
+        &mut test,
+        1,
+        Position {
+            provided_token: "eth_wei".to_string(),
+            provided_token_balance: 20001,
+            requested_token: "tari".to_string(),
+            requested_token_balance: 100001,
+        },
+    );
+
+    // get all providers and positions
+    let provider_positions = get_all_provider_positions(&mut test);
+    assert_eq!(provider_positions.len(), 2);
+    assert_eq!(provider_positions[0].network_address, "http://alice");
+    assert_eq!(provider_positions[0].positions.len(), 1);
+    assert_eq!(
+        provider_positions[0].positions[0].provided_token_balance,
+        100000
+    );
+    assert_eq!(provider_positions[1].network_address, "http://bob");
+    assert_eq!(provider_positions[1].positions.len(), 1);
+    assert_eq!(
+        provider_positions[1].positions[0].provided_token_balance,
+        20001
+    );
 }
