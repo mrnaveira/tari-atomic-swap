@@ -1,10 +1,13 @@
 use std::str::FromStr;
 
+use log::info;
 use tari::liquidity::{Position, TariLiquidityManager};
 use tari_crypto::{ristretto::RistrettoPublicKey, tari_utilities::hex::Hex};
 use tari_template_lib::prelude::ComponentAddress;
 
 use crate::config::Config;
+
+const LOG_TARGET: &str = "liquidity_daemon::position_manager";
 
 pub struct PositionManager {
     config: Config,
@@ -12,7 +15,7 @@ pub struct PositionManager {
 }
 
 impl PositionManager {
-    pub fn new(config: Config) -> Result<Self, anyhow::Error> {
+    pub async fn new(config: Config) -> Result<Self, anyhow::Error> {
         let wallet_public_key = RistrettoPublicKey::from_hex(&config.tari.public_key)?;
         let lp_index_component = ComponentAddress::from_str(&config.tari.liquidity_component)?;
 
@@ -23,7 +26,8 @@ impl PositionManager {
             config.tari.wallet_token.clone(),
             lp_index_component,
             None,
-        )?;
+        )
+        .await?;
 
         Ok(Self {
             config,
@@ -34,12 +38,11 @@ impl PositionManager {
     pub async fn sync(&mut self) -> Result<(), anyhow::Error> {
         let config_network_address = self.config.network_address.clone();
         let config_positions = self.config.positions.clone();
-
         if self.is_registered() {
             // we are registered
-
             // we need to update the network address if it changed in the config
             let published_network_address = self.tari_manager.get_network_address().await?;
+            info!(target: LOG_TARGET, "published network address {:?}", published_network_address);
             if published_network_address != config_network_address {
                 self.tari_manager
                     .set_network_address(config_network_address)
@@ -48,6 +51,7 @@ impl PositionManager {
 
             // we also need to update the positions if they changed in the config
             let published_positions = self.tari_manager.get_positions().await?;
+            info!(target: LOG_TARGET, "published positions {:?}", published_positions);
             if published_positions != config_positions {
                 self.tari_manager
                     .replace_positions(config_positions)

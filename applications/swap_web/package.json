@@ -2,9 +2,10 @@
   "name": "material-vite",
   "version": "5.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "tsc && vite build",
     "serve": "vite preview"
   },
   "dependencies": {
@@ -13,7 +14,8 @@
     "@mui/material": "latest",
     "@mui/icons-material": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "tari-connector": "file:../.."
   },
   "devDependencies": {
     "@types/react": "latest",

@@ -33,6 +33,6 @@ impl Config {
             .unwrap_or_else(|_| panic!("Unable to read config file '{}'", path));
 
         serde_json::from_str(&content)
-            .unwrap_or_else(|_| panic!("'{}' file does not have a valid JSON format", path))
+            .unwrap_or_else(|e| panic!("'{}' file does not have a valid JSON format: {}", path, e))
     }
 }

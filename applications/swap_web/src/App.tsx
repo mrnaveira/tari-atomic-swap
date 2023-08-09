@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { createTheme, ThemeProvider } from '@mui/material/styles';
 import AppBar from '@mui/material/AppBar';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
@@ -7,24 +6,39 @@ import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
 import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
-import FormControl from '@mui/material/FormControl';
-import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
-import FormHelperText from '@mui/material/FormHelperText';
 import TextField from '@mui/material/TextField';
-import ListItemIcon from '@mui/material/ListItemIcon';
 import ListItemText from '@mui/material/ListItemText';
-import Icon from '@mui/material/Icon';
 import IconButton from '@mui/material/IconButton';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
-import Link from '@mui/icons-material/Autorenew';
+import { TariConnection, TariConnectorButton, TariPermissionAccountInfo, TariPermissionKeyList, TariPermissionTransactionGet, TariPermissionTransactionSend, TariPermissions } from 'tari-connector/src/index';
+import * as ReactDOM from 'react-dom';
 
 import Stack from '@mui/material/Stack';
 
 export default function App() {
+  let signaling_server_address = import.meta.env.VITE_TARI_SIGNALING_SERVER_ADDRESS || "http://localhost:9100";
+	let tari_lp_index: string = import.meta.env.VITE_TARI_LP_INDEX;
+
+  const [tari, setTari] = React.useState<TariConnection | undefined>();
+  const [isConnected, setIsConnected] = React.useState<boolean>(false);
   const [fromToken, setFromToken] = React.useState('eth');
   const [toToken, setToToken] = React.useState('tari');
+
+  const onTariConnectButton = (tari: TariConnection) => {
+		console.log("OnOpen");
+		setTari(tari);
+		window.tari = tari;
+	};
+
+  const setTariAnswer = async () => {
+		tari?.setAnswer();
+		await new Promise(f => setTimeout(f, 1000));
+		setIsConnected(true);
+		let res = await tari.sendMessage("keys.list", tari.token);
+    console.log({res});
+	};
 
   const handleFromToken = (event) => {
     setFromToken(event.target.value);
@@ -34,8 +48,22 @@ export default function App() {
     setToToken(event.target.value);
   };
 
+  let permissions = new TariPermissions();
+	permissions.addPermission(new TariPermissionAccountInfo())
+	permissions.addPermission(
+		new TariPermissionTransactionSend()
+	);
+	permissions.addPermission(
+		new TariPermissionTransactionGet()
+	);
+  permissions.addPermission(
+		new TariPermissionKeyList()
+	);
+	let optional_permissions = new TariPermissions();
+
   return (
     <div>
+
       <AppBar
         position="static"
         color="transparent"
@@ -49,8 +77,18 @@ export default function App() {
             </Typography>
           </Stack>
 
-          <Button href="#" variant="contained" sx={{ my: 1, mx: 1.5, borderRadius: 8, textTransform: 'none' }}>
-            Connect wallet
+          <Box>
+          <TariConnectorButton
+						signalingServer={signaling_server_address}
+						permissions={permissions}
+						optional_permissions={optional_permissions}
+						onOpen={onTariConnectButton}
+					/>
+					{tari ? <button onClick={async () => { await setTariAnswer(); }}>SetAnswer</button> : null}
+            </Box>
+
+          <Button variant="contained" sx={{ my: 1, mx: 1.5, borderRadius: 8, textTransform: 'none' }}>
+            Connect Tari Wallet
           </Button>
         </Toolbar>
       </AppBar>
@@ -172,11 +210,12 @@ export default function App() {
                     style: { textAlign: "right" },
                   }} />
               </Stack>
-              <Button sx={{ marginTop: 6, width: '100%', borderRadius: 4, fontSize: 20, textTransform: 'capitalize' }} variant="contained">Swap</Button>
+              <Button sx={{ marginTop: 6, width: '100%', borderRadius: 4, fontSize: 20, textTransform: 'capitalize' }} variant="contained">Begin Swap</Button>
             </Box>
           </Paper>
         </Box>
       </Container>
+
     </div>
   );
 }

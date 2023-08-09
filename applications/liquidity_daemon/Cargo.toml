@@ -9,6 +9,8 @@ edition = "2021"
 anyhow = "1.0.72"
 axum = "0.6.0"
 axum-jrpc = { version = "0.3.2", features = ["anyhow_error"] }
+clap = { version = "4.3.19", features = ["derive", "env"] }
+env_logger = "0.10.0"
 ethers = { workspace = true, features = ["abigen", "ws", "rustls", "ethers-solc"] }
 ethereum = { path = "../../networks/ethereum" }
 log = { version = "0.4.8", features = ["std"] }
