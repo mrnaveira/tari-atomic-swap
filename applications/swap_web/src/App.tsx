@@ -16,6 +16,7 @@ import { TariConnection, TariConnectorButton, TariPermissionAccountInfo, TariPer
 import * as ReactDOM from 'react-dom';
 
 import Stack from '@mui/material/Stack';
+import Metamask from './Metamask';
 
 export default function App() {
   let signaling_server_address = import.meta.env.VITE_TARI_SIGNALING_SERVER_ADDRESS || "http://localhost:9100";
@@ -90,6 +91,8 @@ export default function App() {
           <Button variant="contained" sx={{ my: 1, mx: 1.5, borderRadius: 8, textTransform: 'none' }}>
             Connect Tari Wallet
           </Button>
+
+          <Metamask />
         </Toolbar>
       </AppBar>
 
