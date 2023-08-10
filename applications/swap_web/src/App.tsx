@@ -18,14 +18,20 @@ import * as ReactDOM from 'react-dom';
 import Stack from '@mui/material/Stack';
 import Metamask from './Metamask';
 
+import * as matchmaking from './matchmaking';
+
 export default function App() {
   let signaling_server_address = import.meta.env.VITE_TARI_SIGNALING_SERVER_ADDRESS || "http://localhost:9100";
 	let tari_lp_index: string = import.meta.env.VITE_TARI_LP_INDEX;
 
   const [tari, setTari] = React.useState<TariConnection | undefined>();
   const [isConnected, setIsConnected] = React.useState<boolean>(false);
-  const [fromToken, setFromToken] = React.useState('eth');
+  const [fromToken, setFromToken] = React.useState('eth.wei');
+  const [fromTokenAmount, setFromTokenAmount] = React.useState(0);
   const [toToken, setToToken] = React.useState('tari');
+  const [toTokenAmount, setTokenAmount] = React.useState(0);
+  const [providers, setProviders] = React.useState([]);
+  const [bestSwap, setBestSwap] = React.useState(null);
 
   const onTariConnectButton = (tari: TariConnection) => {
 		console.log("OnOpen");
@@ -38,15 +44,33 @@ export default function App() {
 		await new Promise(f => setTimeout(f, 1000));
 		setIsConnected(true);
 		let res = await tari.sendMessage("keys.list", tari.token);
-    console.log({res});
+
+    let poviders = await matchmaking.get_all_provider_positions(tari);
+    console.log({poviders});
+    setProviders(providers);
 	};
 
-  const handleFromToken = (event) => {
+  const updateBestSwap = async () => {
+    if(providers && providers.length === 0 && fromTokenAmount !=0 ) {
+      let bestSwap = await matchmaking.get_best_match(tari, fromToken, fromTokenAmount, toToken);
+      setBestSwap(bestSwap);
+      setTokenAmount(bestSwap.expected_balance);
+    }
+  }
+
+  const handleFromToken = async (event) => {
     setFromToken(event.target.value);
+    await updateBestSwap();
   };
 
-  const handleToToken = (event) => {
+  const handleToToken = async (event) => {
     setToToken(event.target.value);
+    await updateBestSwap();
+  };
+
+  const handleFromAmount = async (event) => {
+    setFromTokenAmount(event.target.value);
+    await updateBestSwap();
   };
 
   let permissions = new TariPermissions();
@@ -88,10 +112,6 @@ export default function App() {
 					{tari ? <button onClick={async () => { await setTariAnswer(); }}>SetAnswer</button> : null}
             </Box>
 
-          <Button variant="contained" sx={{ my: 1, mx: 1.5, borderRadius: 8, textTransform: 'none' }}>
-            Connect Tari Wallet
-          </Button>
-
           <Metamask />
         </Toolbar>
       </AppBar>
@@ -112,7 +132,7 @@ export default function App() {
                   onChange={handleFromToken}
                   sx={{ width: '40%', borderRadius: 4 }}
                 >
-                  <MenuItem value="eth">
+                  <MenuItem value="eth.wei">
                     <Stack direction="row" spacing={2}>
                       <img width="20px" height="20px" src="/content/ethereum-logo.svg" />
                       <ListItemText primary="Ethereum" />
@@ -144,6 +164,7 @@ export default function App() {
                   </MenuItem>
                 </Select>
                 <TextField sx={{ width: '60%' }} id="fromAmount" placeholder="0"
+                  onChange={handleFromAmount}
                   InputProps={{
                     sx: { borderRadius: 4 },
                   }}
@@ -174,7 +195,7 @@ export default function App() {
                   onChange={handleToToken}
                   sx={{ width: '40%', borderRadius: 4 }}
                 >
-                  <MenuItem value="eth">
+                  <MenuItem value="eth.wei">
                     <Stack direction="row" spacing={2}>
                       <img width="20px" height="20px" src="/content/ethereum-logo.svg" />
                       <ListItemText primary="Ethereum" />
@@ -206,6 +227,7 @@ export default function App() {
                   </MenuItem>
                 </Select>
                 <TextField sx={{ width: '60%' }} id="toAmount" placeholder="0"
+                  value={toTokenAmount}
                   InputProps={{
                     sx: { borderRadius: 4 },
                   }}
