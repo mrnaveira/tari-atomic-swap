@@ -78,7 +78,7 @@ export default function SwapForm() {
 
   const beginSwap = async (event) => {
     event.preventDefault();
-    navigate("/steps");
+    navigate("/steps", { state: { bestSwap, fromToken, fromTokenAmount, toToken } });
   };
 
   let permissions = new TariPermissions();
