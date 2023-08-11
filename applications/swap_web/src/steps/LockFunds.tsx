@@ -72,7 +72,7 @@ export default function LockFunds(props) {
     return sha256(preimage).toString(cryptoEncHex);
   }
 
-  const requestSwapFromProvider = async (hashlock) => {
+  const requestSwapFromProvider = async (provider_address, hashlock) => {
     // proposal
     // client_address: String,
     // hashlock: Hashlock,
@@ -95,7 +95,7 @@ export default function LockFunds(props) {
     return contract_id;
   }
 
-  const requestLockFundsFromProvider = async (swap_id, contract_id_user) => {
+  const requestLockFundsFromProvider = async (provider_address, swap_id, contract_id_user) => {
     // request
     // swap_id: String,
     // contract_id: ContractId,

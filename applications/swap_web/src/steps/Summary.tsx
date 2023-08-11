@@ -2,16 +2,34 @@ import * as React from 'react';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
+import Stack from '@mui/material/Stack';
 
 export default function LockFunds(props) {
   console.log(props.swapDetails);
+  console.log(props.ongoingSwap);
+
+  const expected_balance = props.swapDetails.bestSwap.expected_balance;
+  const fromToken = props.swapDetails.fromToken;
+  const fromTokenAmount = props.swapDetails.fromTokenAmount;
+  const toToken = props.swapDetails.toToken;
+
+  function getTokenName(token) {
+    switch (token) {
+      case "eth.wei":
+        return "ether";
+      case "tari":
+        return "tari";
+      default:
+        "";
+    }
+  }
 
   return (
     <div>
       <React.Fragment>
-        <Typography variant="h6" color="inherit" noWrap sx={{ mx: 1 }}>
-          Summary
-        </Typography>
+        <Stack direction="row" alignItems="center" justifyContent="center" sx={{ marginTop: 2 }}>
+          <Typography variant="body1">You succesfully exchanged <Box component="span" fontWeight='fontWeightMedium'>{fromTokenAmount} {getTokenName(fromToken)}</Box> for <Box component="span" fontWeight='fontWeightMedium'>{expected_balance} {getTokenName(toToken)}</Box></Typography>
+        </Stack>
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
           <Button
             variant="contained"
