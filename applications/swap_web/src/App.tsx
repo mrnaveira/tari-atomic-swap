@@ -1,7 +1,7 @@
 import { Route, Routes } from "react-router-dom";
 import SwapForm from "./SwapForm";
 import React from "react";
-import SwapSteps from "./SwapSteps";
+import SwapSteps from "./steps/SwapSteps";
 
 export default function App() {
   return (
