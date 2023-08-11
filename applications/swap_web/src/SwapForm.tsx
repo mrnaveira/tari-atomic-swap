@@ -78,6 +78,21 @@ export default function SwapForm() {
 
   const beginSwap = async (event) => {
     event.preventDefault();
+
+    // TODO: only for easy testing, remove afterwards
+    let bestSwap = {
+      expected_balance: 0.01,
+      network_address: "http://127.0.0.1:8000",
+      public_key: "fooooo",
+      position: {
+        provided_token: "tari",
+        provided_token_balance: 1,
+        requested_token: "eth.wei",
+        requested_token_balance: 100,
+      }
+    };
+    let fromTokenAmount = 10;
+
     navigate("/steps", { state: { bestSwap, fromToken, fromTokenAmount, toToken } });
   };
 

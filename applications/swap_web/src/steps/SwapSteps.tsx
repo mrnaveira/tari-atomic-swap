@@ -27,21 +27,23 @@ export default function SwapSteps() {
   const navigate = useNavigate();
 
   const [activeStep, setActiveStep] = React.useState(0);
+  const [ongoingSwap, setOngoingSwap] = React.useState(null);
 
-  function getStepContent(step: number) {
+  function getStepContent(step) {
     switch (step) {
       case 0:
-        return <LockFunds />;
+        return <LockFunds swapDetails={location.state} onCompletion={handleNext}/>;
       case 1:
-        return <Withdraw />;
+        return <Withdraw swapDetails={location.state} ongoingSwap={ongoingSwap} onCompletion={handleNext}/>;
       case 2:
-        return <Summary />;
+        return <Summary swapDetails={location.state} ongoingSwap={ongoingSwap} onCompletion={handleNext}/>;
       default:
         navigate("/");
     }
   }
 
-  const handleNext = () => {
+  const handleNext = (ongoingSwap) => {
+    setOngoingSwap(ongoingSwap);
     setActiveStep(activeStep + 1);
   };
 
@@ -82,16 +84,7 @@ export default function SwapSteps() {
               </Stack>
               <React.Fragment>
                   {getStepContent(activeStep)}
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button
-                      variant="contained"
-                      onClick={handleNext}
-                      sx={{ mt: 3, ml: 1 }}
-                    >
-                      {activeStep === steps.length - 1 ? 'Place order' : 'Next'}
-                    </Button>
-                  </Box>
-                </React.Fragment>
+              </React.Fragment>
             </Box>
           </Paper>
         </Box>
