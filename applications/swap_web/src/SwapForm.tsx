@@ -32,7 +32,7 @@ export default function SwapForm() {
   const [fromToken, setFromToken] = React.useState('eth.wei');
   const [fromTokenAmount, setFromTokenAmount] = React.useState(0);
   const [toToken, setToToken] = React.useState('tari');
-  const [toTokenAmount, setTokenAmount] = React.useState(0);
+  const [toTokenAmount, setToTokenAmount] = React.useState(0);
   const [providers, setProviders] = React.useState([]);
   const [bestSwap, setBestSwap] = React.useState(null);
 
@@ -57,7 +57,8 @@ export default function SwapForm() {
     if(providers && providers.length === 0 && fromTokenAmount !=0 ) {
       let bestSwap = await matchmaking.get_best_match(tari, fromToken, fromTokenAmount, toToken);
       setBestSwap(bestSwap);
-      setTokenAmount(bestSwap.expected_balance);
+      console.log("updateBestSwap - ", bestSwap.expected_balance);
+      setToTokenAmount(bestSwap.expected_balance);
     }
   }
 
@@ -81,17 +82,17 @@ export default function SwapForm() {
 
     // TODO: only for easy testing, remove afterwards
     let bestSwap = {
-      expected_balance: 0.01,
+      expected_balance: 1,
       network_address: "http://127.0.0.1:8000",
       public_key: "fooooo",
       position: {
         provided_token: "tari",
         provided_token_balance: 1,
         requested_token: "eth.wei",
-        requested_token_balance: 100,
+        requested_token_balance: 1,
       }
     };
-    let fromTokenAmount = 10;
+    let fromTokenAmount = 1;
 
     navigate("/steps", { state: { bestSwap, fromToken, fromTokenAmount, toToken } });
   };

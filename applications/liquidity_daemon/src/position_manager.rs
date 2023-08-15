@@ -80,11 +80,10 @@ impl PositionManager {
     }
 
     pub async fn is_swap_proposal_valid(&self, proposal: &Position) -> bool {
+        // TODO: check ratio to know if the provided token amount by the client is correct
         self.get_positions().iter().any(|p| {
             p.provided_token == proposal.requested_token
-                && p.provided_token_balance <= proposal.requested_token_balance
                 && p.requested_token == proposal.provided_token
-                && p.requested_token_balance <= proposal.provided_token_balance
         })
     }
 }

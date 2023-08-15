@@ -10,6 +10,8 @@ import Stack from '@mui/material/Stack';
 import sha256 from 'crypto-js/sha256';
 import * as cryptoEncHex from 'crypto-js/enc-hex';
 import { v4 as uuidv4 } from 'uuid';
+import axios from 'axios';
+import { ethers } from 'ethers';
 
 export default function LockFunds(props) {
   console.log(props.swapDetails);
@@ -32,6 +34,24 @@ export default function LockFunds(props) {
     }
   }
 
+  async function getClientAddress() {
+    console.log("getClientAddress - fromToken: ", fromToken);
+    switch (fromToken) {
+      case "eth.wei":
+        let provider = new ethers.BrowserProvider(window.ethereum);
+        provider.send("eth_requestAccounts", [])
+        let signer = await provider.getSigner();
+        const address = await signer.getAddress();
+        console.log("getClientAddress - ethereum address: ", address);
+        return address;
+      case "tari":
+        let res = await window.tari.sendMessage("keys.list", window.tari.token);
+        return res
+      default:
+        null;
+    }
+  }
+
   function getSwapDetails() {
     return (
       <Typography variant="body2">
@@ -46,11 +66,12 @@ export default function LockFunds(props) {
     let preimage = createPreimage();
     let hashlock = createHashlock(preimage);
 
-    let swap_id = await requestSwapFromProvider(hashlock);
-    
+    let swap_id = await requestSwapFromProvider(provider_address, hashlock);
+    console.log({swap_id});
+
     let contract_id_user = await publishLockContract(provider_key, fromToken, fromTokenAmount, hashlock);
     let contract_id_provider = await requestLockFundsFromProvider(swap_id, contract_id_user);
-    
+
     // go to the next step in the process
     let payload = {
       swap_id,
@@ -73,19 +94,42 @@ export default function LockFunds(props) {
   }
 
   const requestSwapFromProvider = async (provider_address, hashlock) => {
-    // proposal
-    // client_address: String,
-    // hashlock: Hashlock,
-    // position: Position
-        // provided_token
-        // provided_token_balance
-        // requested_token
-        // requested_token_balance
+    console.log("requestSwapFromProvider");
+    console.log({provider_address, hashlock});
 
-    // swap_id
-    let swap_id = '123-123';
+    const client_address = await getClientAddress();
+    const hashlock_array = hex_to_int_array(hashlock);
 
-    return swap_id;
+    const body = {
+      jsonrpc: "2.0",
+      method: "request_swap",
+      id: 1,
+      params: {
+        client_address,
+        hashlock: hashlock_array,
+        position: {
+          provided_token: fromToken,
+          provided_token_balance: fromTokenAmount,
+          requested_token: toToken,
+          requested_token_balance: toTokenAmount,
+        }
+      },
+    };
+
+    try {
+      const response = await axios.post(`${provider_address}/json_rpc`, body);
+      return response.data.swap_id;
+    } catch (error) {
+      console.log({error});
+    }
+
+    return null;
+  }
+
+  const hex_to_int_array = (hex_string) => {
+    var tokens = hex_string.match(/[0-9a-z]{2}/gi);  // splits the string into segments of two including a remainder => {1,2}
+    var int_array = tokens.map(t => parseInt(t, 16));
+    return int_array;
   }
 
   const publishLockContract = async (provider_key, fromToken, fromTokenAmount, hashlock) => {
@@ -123,7 +167,7 @@ export default function LockFunds(props) {
             <Typography variant="body2">{provider_key}</Typography>
           </ListItem>
         </List>
-        
+
         <Stack direction="row" alignItems="center" justifyContent="center" sx={{ marginTop: 4 }}>
           <Typography variant="body1">You need to lock <Box component="span" fontWeight='fontWeightMedium'>{fromTokenAmount} {getTokenName(fromToken)}</Box> to begin the atomic swap</Typography>
         </Stack>
