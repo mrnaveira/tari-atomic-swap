@@ -14,11 +14,13 @@ pub struct Config {
 pub struct EthereumConfig {
     pub rpc_url: String,
     pub private_key: String,
+    pub account_address: String,
     pub contract_address: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TariConfig {
+    pub account_component: String,
     pub public_key: String,
     pub public_key_index: u64,
     pub wallet_endpoint: String,

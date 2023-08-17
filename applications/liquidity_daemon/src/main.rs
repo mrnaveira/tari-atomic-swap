@@ -47,8 +47,8 @@ async fn main() {
     let eth_wallet = config.ethereum.private_key.parse::<LocalWallet>().unwrap();
     let eth_manager = EthereumContractManager::new(
         eth_wallet,
-        config.ethereum.rpc_url,
-        config.ethereum.contract_address,
+        config.ethereum.rpc_url.clone(),
+        config.ethereum.contract_address.clone(),
     )
     .await
     .expect("Could not initialize the Ethereum manager");
@@ -60,7 +60,7 @@ async fn main() {
     let tari_swap_template = TemplateAddress::from_hex(&config.tari.swap_template)
         .expect("Invalid Tari swap template address ");
     let tari_manager = TariContractManager::new(
-        config.tari.wallet_endpoint,
+        config.tari.wallet_endpoint.clone(),
         tari_public_key,
         config.tari.public_key_index,
         config.tari.wallet_token.clone(),
@@ -71,6 +71,7 @@ async fn main() {
     // init the swap manager
     info!("Initializing the swap manager...");
     let swap_manager = Arc::new(SwapManager::new(
+        config.clone(),
         position_manager,
         eth_manager,
         tari_manager,

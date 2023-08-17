@@ -73,10 +73,12 @@ export default function LockFunds(props) {
     let preimage = createPreimage();
     let hashlock = createHashlock(preimage);
 
-    let swap_id = await requestSwapFromProvider(provider_address, hashlock);
-    console.log({swap_id});
+    const swap_request_response = await requestSwapFromProvider(provider_address, hashlock);
+    console.log({swap_request_response});
+    const {swap_id, provider_account_address} = swap_request_response;
+    console.log({swap_id, provider_account_address});
 
-    let contract_id_user = await publishLockContract(provider_key, fromToken, fromTokenAmount, hashlock);
+    let contract_id_user = await publishLockContract(provider_account_address, fromToken, fromTokenAmount, hashlock);
     console.log({contract_id_user});
     let contract_id_provider = await requestLockFundsFromProvider(provider_address, swap_id, contract_id_user);
     console.log({contract_id_provider});
@@ -150,7 +152,9 @@ export default function LockFunds(props) {
       const response = await axios.post(`${provider_address}/json_rpc`, body);
       console.log("success");
       console.log({response});
-      return response.data.result.swap_id;
+      const swap_id = response.data.result.swap_id;
+      const provider_account_address = response.data.result.provider_address;
+      return {swap_id, provider_account_address};
     } catch (error) {
       console.log("error");
       console.log({error});
@@ -159,9 +163,9 @@ export default function LockFunds(props) {
     return null;
   }
 
-  const publishLockContract = async (provider_key, fromToken, fromTokenAmount, hashlock) => {
+  const publishLockContract = async (provider_account, fromToken, fromTokenAmount, hashlock) => {
     console.log("publishLockContract");
-    console.log({provider_key, fromToken, fromTokenAmount, hashlock});
+    console.log({provider_account, fromToken, fromTokenAmount, hashlock});
     switch (fromToken) {
       case "eth.wei":
         console.log("publishLockContract - eth");
@@ -172,7 +176,7 @@ export default function LockFunds(props) {
         console.log({contract});
         const timelock = build_timelock();
         console.log({timelock});
-        const provider_address = ethers.utils.getAddress(provider_key);
+        const provider_address = ethers.utils.getAddress(provider_account);
         //const hashlock_array = hex_to_int_array(hashlock);
         const transaction = await contract.newContract(provider_address, hashlock, timelock, {value: 1});
         const transactionReceipt = await transaction.wait();

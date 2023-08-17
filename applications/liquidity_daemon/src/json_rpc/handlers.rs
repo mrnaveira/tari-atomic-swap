@@ -12,6 +12,7 @@ use crate::swap_manager::{ContractId, Preimage, Proposal, SwapManager};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestSwapResponse {
     pub swap_id: String,
+    pub provider_address: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,9 +48,10 @@ impl JsonRpcHandlers {
         let result = self.swap_manager.request_swap(proposal).await;
 
         match result {
-            Ok(swap_id) => {
+            Ok((swap_id, provider_address)) => {
                 let response = RequestSwapResponse {
                     swap_id: swap_id.to_string(),
+                    provider_address,
                 };
                 Ok(JsonRpcResponse::success(answer_id, response))
             }
