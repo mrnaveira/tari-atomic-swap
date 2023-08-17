@@ -20,14 +20,10 @@ import Stack from '@mui/material/Stack';
 import Metamask from './Metamask';
 
 import * as matchmaking from './tari-lib';
-
-import * as  CryptoJS from 'crypto-js';
-import sha256 from 'crypto-js/sha256';
-import * as cryptoEncHex from 'crypto-js/enc-hex';
+import { useEffect } from 'react';
 
 export default function SwapForm() {
   let signaling_server_address = import.meta.env.VITE_TARI_SIGNALING_SERVER_ADDRESS || "http://localhost:9100";
-	let tari_lp_index: string = import.meta.env.VITE_TARI_LP_INDEX;
 
   const navigate = useNavigate();
 
@@ -40,33 +36,10 @@ export default function SwapForm() {
   const [providers, setProviders] = React.useState([]);
   const [bestSwap, setBestSwap] = React.useState(null);
 
-
-  const hex_to_int_array = (hex_string) => {
-    var tokens = hex_string.match(/[0-9a-z]{2}/gi);  // splits the string into segments of two including a remainder => {1,2}
-    var int_array = tokens.map(t => parseInt(t, 16));
-    return int_array;
-  }
-  function toHexString(byteArray) {
-    return Array.from(byteArray, function(byte) {
-      return ('0' + (byte & 0xFF).toString(16)).slice(-2);
-    }).join('')
-  }
-
-  //const test_preimage = [135, 146, 76, 122, 156, 62, 171, 224, 73, 237, 17, 16, 150, 240, 212, 1, 241, 152, 226, 232, 73, 253, 252, 12, 229, 53, 197, 196, 239, 75, 212, 15];
-  //const hash = sha256(CryptoJS.lib.WordArray.create(test_preimage));
-
-  //const test_preimage = "ec1270f481b5ad2217f1cd90ddf9ed0c295391bd788b7c5f2b9a2bc93a6c1443";
-  //let bytes = CryptoJS.enc.Hex.parse(test_preimage);
-
-  const test_preimage = [135, 146, 76, 122, 156, 62, 171, 224, 73, 237, 17, 16, 150, 240, 212, 1, 241, 152, 226, 232, 73, 253, 252, 12, 229, 53, 197, 196, 239, 75, 212, 15];
-  const test_preimage_hex = toHexString(test_preimage);
-  let bytes = CryptoJS.enc.Hex.parse(test_preimage_hex);
-  const hash = sha256(bytes);
-  console.log({hash});
-  const hash_hex = hash.toString(cryptoEncHex);
-  const hash_array = hex_to_int_array(hash_hex);
-  console.log({hash_array});
-  
+  useEffect(() => {
+    console.log("useEffect ", {fromToken, fromTokenAmount});
+    updateBestSwap();
+  }, [fromToken, fromTokenAmount]);  
 
   const onTariConnectButton = (tari: TariConnection) => {
 		console.log("OnOpen");
@@ -87,6 +60,7 @@ export default function SwapForm() {
 
   const updateBestSwap = async () => {
     if(providers && providers.length === 0 && fromTokenAmount !=0 ) {
+      console.log({fromToken, fromTokenAmount, toToken});
       let bestSwap = await matchmaking.get_best_match(tari, fromToken, fromTokenAmount, toToken);
       setBestSwap(bestSwap);
       console.log("updateBestSwap - ", bestSwap.expected_balance);
@@ -104,27 +78,14 @@ export default function SwapForm() {
     await updateBestSwap();
   };
 
-  const handleFromAmount = async (event) => {
-    setFromTokenAmount(event.target.value);
-    await updateBestSwap();
+  const handleFromTokenAmount = async (event) => {
+    setFromTokenAmount(Number(event.target.value));
   };
 
   const beginSwap = async (event) => {
     event.preventDefault();
 
-    // TODO: only for easy testing, remove afterwards
-    let bestSwap = {
-      expected_balance: 1,
-      network_address: "http://127.0.0.1:8000",
-      public_key: "0xCEe86979A65267229dF08E7a479E3CD097609de2",
-      position: {
-        provided_token: "tari",
-        provided_token_balance: 1,
-        requested_token: "eth.wei",
-        requested_token_balance: 1,
-      }
-    };
-    let fromTokenAmount = 1;
+    // bestSwap.public_key = "0xCEe86979A65267229dF08E7a479E3CD097609de2"
 
     navigate("/steps", { state: { bestSwap, fromToken, fromTokenAmount, toToken } });
   };
@@ -220,7 +181,7 @@ export default function SwapForm() {
                   </MenuItem>
                 </Select>
                 <TextField sx={{ width: '60%' }} id="fromAmount" placeholder="0"
-                  onChange={handleFromAmount}
+                  onChange={handleFromTokenAmount}
                   InputProps={{
                     sx: { borderRadius: 4 },
                   }}
