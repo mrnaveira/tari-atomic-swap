@@ -7,14 +7,18 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemText from '@mui/material/ListItemText';
 import Stack from '@mui/material/Stack';
+import * as  CryptoJS from 'crypto-js';
 import sha256 from 'crypto-js/sha256';
 import * as cryptoEncHex from 'crypto-js/enc-hex';
 import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 import { ethers } from 'ethers';
+import lock_abi from '../../../../networks/ethereum/abi/HashedTimelock.json';
 
 export default function LockFunds(props) {
   console.log(props.swapDetails);
+
+  let ethereum_lock_contract_address: string = import.meta.env.VITE_ETHEREUM_LOCK_CONTRACT;
 
   const fromToken = props.swapDetails.fromToken;
   const fromTokenAmount = props.swapDetails.fromTokenAmount;
@@ -35,18 +39,21 @@ export default function LockFunds(props) {
   }
 
   async function getClientAddress() {
-    console.log("getClientAddress - fromToken: ", fromToken);
-    switch (fromToken) {
+    console.log("getClientAddress - toToken: ", toToken);
+    switch (toToken) {
       case "eth.wei":
-        let provider = new ethers.BrowserProvider(window.ethereum);
+        let provider = new ethers.providers.Web3Provider(window.ethereum);
         provider.send("eth_requestAccounts", [])
         let signer = await provider.getSigner();
         const address = await signer.getAddress();
         console.log("getClientAddress - ethereum address: ", address);
         return address;
       case "tari":
-        let res = await window.tari.sendMessage("keys.list", window.tari.token);
-        return res
+        let res = await window.tari.sendMessage("accounts.get_default", window.tari.token);
+        console.log({res});
+        let public_key = res.public_key;
+        console.log({public_key});
+        return public_key;
       default:
         null;
     }
@@ -70,7 +77,9 @@ export default function LockFunds(props) {
     console.log({swap_id});
 
     let contract_id_user = await publishLockContract(provider_key, fromToken, fromTokenAmount, hashlock);
-    let contract_id_provider = await requestLockFundsFromProvider(swap_id, contract_id_user);
+    console.log({contract_id_user});
+    let contract_id_provider = await requestLockFundsFromProvider(provider_address, swap_id, contract_id_user);
+    console.log({contract_id_provider});
 
     // go to the next step in the process
     let payload = {
@@ -80,17 +89,38 @@ export default function LockFunds(props) {
       contract_id_user,
       contract_id_provider,
     };
+    console.log({payload});
     props.onCompletion(payload);
   };
 
   const createPreimage = () => {
     // safe random value
-    return uuidv4();
+    const random_value = uuidv4();
+    // to match the Tari template API, we need the preimage to be a 32 bytes array so we hash it
+    const hash = sha256(random_value).toString(cryptoEncHex);
+    const hash_as_array = hex_to_int_array(hash);
+    return hash_as_array;
   }
 
   const createHashlock = (preimage) => {
     // depending on the network, we may need to use a different hash algorithm
-    return sha256(preimage).toString(cryptoEncHex);
+    const test_preimage_hex = int_array_to_hex(preimage);
+    let bytes = CryptoJS.enc.Hex.parse(test_preimage_hex);
+    const hash = sha256(bytes).toString(cryptoEncHex);
+    const hash_as_array = hex_to_int_array(hash);
+    return hash_as_array;
+  }
+
+  function int_array_to_hex(int_array) {
+    return Array.from(int_array, function(byte) {
+      return ('0' + (byte & 0xFF).toString(16)).slice(-2);
+    }).join('')
+  }
+
+  const hex_to_int_array = (hex_string) => {
+    var tokens = hex_string.match(/[0-9a-z]{2}/gi);  // splits the string into segments of two including a remainder => {1,2}
+    var int_array = tokens.map(t => parseInt(t, 16));
+    return int_array;
   }
 
   const requestSwapFromProvider = async (provider_address, hashlock) => {
@@ -98,7 +128,7 @@ export default function LockFunds(props) {
     console.log({provider_address, hashlock});
 
     const client_address = await getClientAddress();
-    const hashlock_array = hex_to_int_array(hashlock);
+    //const hashlock_array = hex_to_int_array(hashlock);
 
     const body = {
       jsonrpc: "2.0",
@@ -106,7 +136,7 @@ export default function LockFunds(props) {
       id: 1,
       params: {
         client_address,
-        hashlock: hashlock_array,
+        hashlock,
         position: {
           provided_token: fromToken,
           provided_token_balance: fromTokenAmount,
@@ -118,36 +148,81 @@ export default function LockFunds(props) {
 
     try {
       const response = await axios.post(`${provider_address}/json_rpc`, body);
-      return response.data.swap_id;
+      console.log("success");
+      console.log({response});
+      return response.data.result.swap_id;
     } catch (error) {
+      console.log("error");
       console.log({error});
     }
 
     return null;
   }
 
-  const hex_to_int_array = (hex_string) => {
-    var tokens = hex_string.match(/[0-9a-z]{2}/gi);  // splits the string into segments of two including a remainder => {1,2}
-    var int_array = tokens.map(t => parseInt(t, 16));
-    return int_array;
-  }
-
   const publishLockContract = async (provider_key, fromToken, fromTokenAmount, hashlock) => {
-    // switch on the "fromToken" and submit a transaction to the targeted network
+    console.log("publishLockContract");
+    console.log({provider_key, fromToken, fromTokenAmount, hashlock});
+    switch (fromToken) {
+      case "eth.wei":
+        console.log("publishLockContract - eth");
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = await provider.getSigner();
+        const contract = new ethers.Contract(ethereum_lock_contract_address, lock_abi, signer);
+        //const contractWithSigner = contract.connect(signer);
+        console.log({contract});
+        const timelock = build_timelock();
+        console.log({timelock});
+        const provider_address = ethers.utils.getAddress(provider_key);
+        //const hashlock_array = hex_to_int_array(hashlock);
+        const transaction = await contract.newContract(provider_address, hashlock, timelock, {value: 1});
+        const transactionReceipt = await transaction.wait();
+        console.log({transactionReceipt});
+        // In solidity the first topic is the hash of the signature of the event
+        // So "contractId" will be in second place on the topics of the "LogHTLCNew" event
+        const lock_id = transactionReceipt.logs[0].topics[1];
+        console.log({lock_id});
+        return lock_id;
+      case "tari":
+        console.log("publishLockContract - tari");
+        let res = await window.tari.sendMessage("keys.list", window.tari.token);
+        return res
+      default:
+        null;
+    }
     // the return will be an identifier of the deployed lock contract in the target network
     let contract_id = "contract_id_user";
     return contract_id;
   }
 
+  const build_timelock = () => {
+    const secondsSinceEpoch = Math.round(Date.now() / 1000);
+    // TODO: make this an environment variable 
+    return secondsSinceEpoch + 100;
+  }
+
   const requestLockFundsFromProvider = async (provider_address, swap_id, contract_id_user) => {
-    // request
-    // swap_id: String,
-    // contract_id: ContractId,
+    console.log("requestLockFundsFromProvider");
+    console.log({provider_address, swap_id, contract_id_user});
 
-    // contract_id
-    let contract_id_provider = 'contract_id_provider';
+    const body = {
+      jsonrpc: "2.0",
+      method: "request_lock_funds",
+      id: 1,
+      params: {
+        swap_id,
+        contract_id: contract_id_user
+      },
+    };
 
-    return contract_id_provider;
+    try {
+      const response = await axios.post(`${provider_address}/json_rpc`, body);
+      console.log({response});
+      return response.data.result.contract_id;
+    } catch (error) {
+      console.log({error});
+    }
+
+    return null;
   }
 
   return (

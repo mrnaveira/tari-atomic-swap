@@ -19,7 +19,11 @@ import { useNavigate } from "react-router-dom";
 import Stack from '@mui/material/Stack';
 import Metamask from './Metamask';
 
-import * as matchmaking from './matchmaking';
+import * as matchmaking from './tari-lib';
+
+import * as  CryptoJS from 'crypto-js';
+import sha256 from 'crypto-js/sha256';
+import * as cryptoEncHex from 'crypto-js/enc-hex';
 
 export default function SwapForm() {
   let signaling_server_address = import.meta.env.VITE_TARI_SIGNALING_SERVER_ADDRESS || "http://localhost:9100";
@@ -35,6 +39,34 @@ export default function SwapForm() {
   const [toTokenAmount, setToTokenAmount] = React.useState(0);
   const [providers, setProviders] = React.useState([]);
   const [bestSwap, setBestSwap] = React.useState(null);
+
+
+  const hex_to_int_array = (hex_string) => {
+    var tokens = hex_string.match(/[0-9a-z]{2}/gi);  // splits the string into segments of two including a remainder => {1,2}
+    var int_array = tokens.map(t => parseInt(t, 16));
+    return int_array;
+  }
+  function toHexString(byteArray) {
+    return Array.from(byteArray, function(byte) {
+      return ('0' + (byte & 0xFF).toString(16)).slice(-2);
+    }).join('')
+  }
+
+  //const test_preimage = [135, 146, 76, 122, 156, 62, 171, 224, 73, 237, 17, 16, 150, 240, 212, 1, 241, 152, 226, 232, 73, 253, 252, 12, 229, 53, 197, 196, 239, 75, 212, 15];
+  //const hash = sha256(CryptoJS.lib.WordArray.create(test_preimage));
+
+  //const test_preimage = "ec1270f481b5ad2217f1cd90ddf9ed0c295391bd788b7c5f2b9a2bc93a6c1443";
+  //let bytes = CryptoJS.enc.Hex.parse(test_preimage);
+
+  const test_preimage = [135, 146, 76, 122, 156, 62, 171, 224, 73, 237, 17, 16, 150, 240, 212, 1, 241, 152, 226, 232, 73, 253, 252, 12, 229, 53, 197, 196, 239, 75, 212, 15];
+  const test_preimage_hex = toHexString(test_preimage);
+  let bytes = CryptoJS.enc.Hex.parse(test_preimage_hex);
+  const hash = sha256(bytes);
+  console.log({hash});
+  const hash_hex = hash.toString(cryptoEncHex);
+  const hash_array = hex_to_int_array(hash_hex);
+  console.log({hash_array});
+  
 
   const onTariConnectButton = (tari: TariConnection) => {
 		console.log("OnOpen");
@@ -84,7 +116,7 @@ export default function SwapForm() {
     let bestSwap = {
       expected_balance: 1,
       network_address: "http://127.0.0.1:8000",
-      public_key: "fooooo",
+      public_key: "0xCEe86979A65267229dF08E7a479E3CD097609de2",
       position: {
         provided_token: "tari",
         provided_token_balance: 1,

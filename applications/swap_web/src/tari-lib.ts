@@ -1,4 +1,5 @@
 import { TariConnection } from 'tari-connector/src/index';
+import * as cbor from 'cbor-web'
 
 let lp_index_component = import.meta.env.VITE_TARI_LP_INDEX;
 
@@ -70,4 +71,62 @@ async function get_all_provider_positions(tari: TariConnection) {
     return submit_resp.result.finalize.execution_results[0].json;
 };
 
-export { get_best_match, get_all_provider_positions };
+async function withdraw(tari: TariConnection, contract, preimage) {
+    console.log("tari-lib withdraw");
+    let res = await tari.sendMessage("accounts.get_default", tari.token);
+    console.log({res});
+    let key_index = res.account.key_index;
+    let account = res.account.address.Component;
+    //let preimage_cbor = [152,32, ...preimage];
+    console.log({preimage});
+    let preimage_cbor = encode_cbor(preimage);
+    console.log({preimage_cbor});
+
+    let submit_resp = await tari.sendMessage("transactions.submit", tari.token,
+    /*signing_key_index: */ null,
+    /*fee_instructions":*/[
+    ],
+    /*instructions":*/[
+        {
+            "CallMethod": {
+                "component_address": contract,
+                "method": "withdraw",
+                "args": [{"Literal": preimage_cbor}]
+            }
+        },
+        {
+            "PutLastInstructionOutputOnWorkspace": {
+                "key": [98, 95, 98, 117, 99, 107, 101, 116]
+            }
+        },
+        {
+            "CallMethod": {
+                "component_address": account,
+                "method": "deposit",
+                "args": [{ "Workspace": [98, 95, 98, 117, 99, 107, 101, 116] }]
+            }
+        },
+    ],
+    /*inputs":*/[{ "address": contract }, { "address": account }],
+    /*override_inputs":*/ false,
+    /*new_outputs":*/ 0,
+    /*specific_non_fungible_outputs":*/[],
+    /*new_resources":*/[],
+    /*new_non_fungible_outputs":*/[],
+    /*new_non_fungible_index_outputs":*/[],
+    /*is_dry_run":*/ false,
+    /*proof_ids":*/[]
+    );
+    console.log({submit_resp});
+
+    //let wait_resp = await tari.sendMessage("transactions.wait_result", tari.token, submit_resp.hash, 15);
+    //console.log({ wait_resp });
+};
+
+function encode_cbor(value) {
+    const buffer = cbor.Encoder.encode(value);
+    let value_cbor_bytes = [...buffer.values()];
+    return value_cbor_bytes;
+}
+
+export { get_best_match, get_all_provider_positions, withdraw };

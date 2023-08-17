@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import Button from '@mui/material/Button';
-import { ethers, formatEther } from 'ethers';
-import { BrowserProvider, parseUnits } from "ethers";
+import { ethers } from 'ethers';
 
 let signer = null;
 let provider;
@@ -12,7 +11,7 @@ const Metamask = () => {
 
     const connectwalletHandler = async() => {
         if (window.ethereum) {
-            provider = new ethers.BrowserProvider(window.ethereum);
+            provider = new ethers.providers.Web3Provider(window.ethereum);
             provider.send("eth_requestAccounts", [])
                 .then(async () => {
                     signer = await provider.getSigner();
@@ -31,7 +30,7 @@ const Metamask = () => {
         const address = await signer.getAddress();
         const balance = await provider.getBalance(address);
         setBalance(balance);
-        console.log(formatEther(balance));
+        console.log(ethers.utils.formatEther(balance));
     }
 
     return (
