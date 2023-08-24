@@ -14,7 +14,7 @@ import IconButton from '@mui/material/IconButton';
 import AutorenewIcon from '@mui/icons-material/Autorenew';
 import { TariConnection, TariConnectorButton, TariPermissionAccountInfo, TariPermissionKeyList, TariPermissionTransactionGet, TariPermissionTransactionSend, TariPermissions } from 'tari-connector/src/index';
 import * as ReactDOM from 'react-dom';
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import Stack from '@mui/material/Stack';
 import Metamask from './Metamask';
@@ -25,18 +25,18 @@ import { formatEther, parseEther } from 'ethers/lib/utils';
 import { BigNumber } from 'ethers';
 
 export default function SwapForm() {
-  let signaling_server_address = import.meta.env.VITE_TARI_SIGNALING_SERVER_ADDRESS || "http://localhost:9100";
-
   const navigate = useNavigate();
 
-  const [tari, setTari] = React.useState<TariConnection | undefined>();
-  const [isConnected, setIsConnected] = React.useState<boolean>(false);
+  const location = useLocation();
+  console.log(location.state);
+  const providers = location.state.providers;
+  const tari = window.tari;
+
   const [fromToken, setFromToken] = React.useState('eth.wei');
   const [fromTokenAmount, setFromTokenAmount] = React.useState('0');
   const [fromTokenBalance, setFromTokenBalance] = React.useState('0.0');
   const [toToken, setToToken] = React.useState('tari');
   const [toTokenAmount, setToTokenAmount] = React.useState('0');
-  const [providers, setProviders] = React.useState([]);
   const [bestSwap, setBestSwap] = React.useState(null);
 
   useEffect(() => {
@@ -44,25 +44,10 @@ export default function SwapForm() {
     updateBestSwap();
   }, [fromToken, fromTokenAmount]);  
 
-  const onTariConnectButton = (tari: TariConnection) => {
-		console.log("OnOpen");
-		setTari(tari);
-		window.tari = tari;
-	};
-
-  const setTariAnswer = async () => {
-		tari?.setAnswer();
-		await new Promise(f => setTimeout(f, 1000));
-		setIsConnected(true);
-		let res = await tari.sendMessage("keys.list", tari.token);
-
-    let poviders = await matchmaking.get_all_provider_positions(tari);
-    console.log({poviders});
-    setProviders(providers);
-	};
-
   const updateBestSwap = async () => {
-    if(providers && providers.length === 0 && fromTokenAmount != '0' ) {
+    console.log({providers});
+    if(providers && providers.length !== 0 && fromTokenAmount != '0' ) {
+      console.log('fooooooooo');
       console.log({fromToken, fromTokenAmount, toToken});
       let bestSwap = await matchmaking.get_best_match(tari, fromToken, fromTokenAmount, toToken);
       setBestSwap(bestSwap);
@@ -102,19 +87,6 @@ export default function SwapForm() {
     setFromTokenBalance(ether_balance);
   };
 
-  let permissions = new TariPermissions();
-	permissions.addPermission(new TariPermissionAccountInfo())
-	permissions.addPermission(
-		new TariPermissionTransactionSend()
-	);
-	permissions.addPermission(
-		new TariPermissionTransactionGet()
-	);
-  permissions.addPermission(
-		new TariPermissionKeyList()
-	);
-	let optional_permissions = new TariPermissions();
-
   return (
     <div>
 
@@ -130,16 +102,6 @@ export default function SwapForm() {
               Tari Atomic Swap
             </Typography>
           </Stack>
-
-          <Box>
-          <TariConnectorButton
-						signalingServer={signaling_server_address}
-						permissions={permissions}
-						optional_permissions={optional_permissions}
-						onOpen={onTariConnectButton}
-					/>
-					{tari ? <button onClick={async () => { await setTariAnswer(); }}>SetAnswer</button> : null}
-            </Box>
 
           <Metamask  onConnection={handleMetamaskConnection} />
         </Toolbar>
