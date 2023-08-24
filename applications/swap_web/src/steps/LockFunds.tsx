@@ -14,7 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 import { ethers } from 'ethers';
 import lock_abi from '../../../../networks/ethereum/abi/HashedTimelock.json';
-import { formatEther } from 'ethers/lib/utils';
+import { formatEther, parseUnits } from 'ethers/lib/utils';
 
 export default function LockFunds(props) {
   console.log(props.swapDetails);
@@ -190,7 +190,9 @@ export default function LockFunds(props) {
         console.log({timelock});
         const provider_address = ethers.utils.getAddress(provider_account);
         //const hashlock_array = hex_to_int_array(hashlock);
-        const transaction = await contract.newContract(provider_address, hashlock, timelock, {value: 1});
+        const value = parseUnits(fromTokenAmount, "wei");
+        console.log({value});
+        const transaction = await contract.newContract(provider_address, hashlock, timelock, {value});
         const transactionReceipt = await transaction.wait();
         console.log({transactionReceipt});
         // In solidity the first topic is the hash of the signature of the event
