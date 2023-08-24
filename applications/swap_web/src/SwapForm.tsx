@@ -47,7 +47,6 @@ export default function SwapForm() {
   const updateBestSwap = async () => {
     console.log({providers});
     if(providers && providers.length !== 0 && fromTokenAmount != '0' ) {
-      console.log('fooooooooo');
       console.log({fromToken, fromTokenAmount, toToken});
       let bestSwap = await matchmaking.get_best_match(tari, fromToken, fromTokenAmount, toToken);
       setBestSwap(bestSwap);

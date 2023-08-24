@@ -23,7 +23,7 @@ async function get_best_match(tari: TariConnection, provided_token, provided_tok
 
         // expected tokens to receive
         let ratio = position.provided_token_balance / position.requested_token_balance;
-        let expected_balance = provided_token_balance * ratio;
+        let expected_balance = Math.floor(provided_token_balance * ratio);
         console.log({position, ratio, expected_balance, provided_token_balance});
 
         // data for holding this provider's best possible match for our request
