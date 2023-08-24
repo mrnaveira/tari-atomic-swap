@@ -5,7 +5,7 @@ import { ethers } from 'ethers';
 let signer = null;
 let provider;
 
-const Metamask = () => {
+const Metamask = (props) => {
     const [account, setAccount] = useState(null);
     const [balance, setBalance] = useState(null);
 
@@ -31,6 +31,7 @@ const Metamask = () => {
         const balance = await provider.getBalance(address);
         setBalance(balance);
         console.log(ethers.utils.formatEther(balance));
+        props.onConnection({balance});
     }
 
     return (

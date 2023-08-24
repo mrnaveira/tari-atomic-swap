@@ -9,8 +9,9 @@ use ethereum::EthereumContractManager;
 use ethers::types::Address;
 use ethers::utils::hex;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use std::collections::HashMap;
-use tari::{contract::TariContractManager, liquidity::Position};
+use tari::contract::TariContractManager;
 use tari_crypto::ristretto::RistrettoPublicKey;
 use tari_crypto::tari_utilities::hex::Hex;
 use tari_template_lib::prelude::ComponentAddress;
@@ -26,6 +27,28 @@ pub struct Proposal {
     client_address: String,
     hashlock: Hashlock,
     position: Position,
+}
+
+#[serde_as]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Eq, PartialEq)]
+pub struct Position {
+    pub provided_token: String,
+    #[serde_as(as = "DisplayFromStr")]
+    pub provided_token_balance: u64,
+    pub requested_token: String,
+    #[serde_as(as = "DisplayFromStr")]
+    pub requested_token_balance: u64,
+}
+
+impl From<Position> for tari::liquidity::Position {
+    fn from(pos: Position) -> Self {
+        Self {
+            provided_token: pos.provided_token,
+            provided_token_balance: pos.provided_token_balance,
+            requested_token: pos.requested_token,
+            requested_token_balance: pos.requested_token_balance,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,7 +98,7 @@ impl SwapManager {
     ) -> Result<(SwapId, String), anyhow::Error> {
         if self
             .position_manager
-            .is_swap_proposal_valid(&proposal.position)
+            .is_swap_proposal_valid(&proposal.position.clone().into())
             .await
         {
             let swap_id = Uuid::new_v4();

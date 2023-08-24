@@ -21,6 +21,8 @@ import Metamask from './Metamask';
 
 import * as matchmaking from './tari-lib';
 import { useEffect } from 'react';
+import { formatEther, parseEther } from 'ethers/lib/utils';
+import { BigNumber } from 'ethers';
 
 export default function SwapForm() {
   let signaling_server_address = import.meta.env.VITE_TARI_SIGNALING_SERVER_ADDRESS || "http://localhost:9100";
@@ -30,9 +32,10 @@ export default function SwapForm() {
   const [tari, setTari] = React.useState<TariConnection | undefined>();
   const [isConnected, setIsConnected] = React.useState<boolean>(false);
   const [fromToken, setFromToken] = React.useState('eth.wei');
-  const [fromTokenAmount, setFromTokenAmount] = React.useState(0);
+  const [fromTokenAmount, setFromTokenAmount] = React.useState('0');
+  const [fromTokenBalance, setFromTokenBalance] = React.useState('0.0');
   const [toToken, setToToken] = React.useState('tari');
-  const [toTokenAmount, setToTokenAmount] = React.useState(0);
+  const [toTokenAmount, setToTokenAmount] = React.useState('0');
   const [providers, setProviders] = React.useState([]);
   const [bestSwap, setBestSwap] = React.useState(null);
 
@@ -59,7 +62,7 @@ export default function SwapForm() {
 	};
 
   const updateBestSwap = async () => {
-    if(providers && providers.length === 0 && fromTokenAmount !=0 ) {
+    if(providers && providers.length === 0 && fromTokenAmount != '0' ) {
       console.log({fromToken, fromTokenAmount, toToken});
       let bestSwap = await matchmaking.get_best_match(tari, fromToken, fromTokenAmount, toToken);
       setBestSwap(bestSwap);
@@ -79,15 +82,24 @@ export default function SwapForm() {
   };
 
   const handleFromTokenAmount = async (event) => {
-    setFromTokenAmount(Number(event.target.value));
+    const amount_in_wei = parseEther(event.target.value);
+    setFromTokenAmount(amount_in_wei.toString());
   };
 
   const beginSwap = async (event) => {
     event.preventDefault();
-
-    // bestSwap.public_key = "0xCEe86979A65267229dF08E7a479E3CD097609de2"
-
     navigate("/steps", { state: { bestSwap, fromToken, fromTokenAmount, toToken } });
+  };
+
+  const handleMetamaskConnection = (data) => {
+    console.log({data});
+
+    // truncate decimal places in the user's balance
+    const remainder = data.balance.mod(1e14);
+    const truncatedBalance = data.balance.sub(remainder);
+
+    const ether_balance = formatEther(truncatedBalance);
+    setFromTokenBalance(ether_balance);
   };
 
   let permissions = new TariPermissions();
@@ -129,7 +141,7 @@ export default function SwapForm() {
 					{tari ? <button onClick={async () => { await setTariAnswer(); }}>SetAnswer</button> : null}
             </Box>
 
-          <Metamask />
+          <Metamask  onConnection={handleMetamaskConnection} />
         </Toolbar>
       </AppBar>
 
@@ -194,7 +206,7 @@ export default function SwapForm() {
                   MAX
                 </Button>
                 <Typography component="h1" style={{ fontSize: 12, maxHeight: '20px' }} >
-                  Your balance is 0.00
+                  Your balance is {fromTokenBalance}
                 </Typography>
               </Stack>
 

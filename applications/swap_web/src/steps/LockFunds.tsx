@@ -14,6 +14,7 @@ import { v4 as uuidv4 } from 'uuid';
 import axios from 'axios';
 import { ethers } from 'ethers';
 import lock_abi from '../../../../networks/ethereum/abi/HashedTimelock.json';
+import { formatEther } from 'ethers/lib/utils';
 
 export default function LockFunds(props) {
   console.log(props.swapDetails);
@@ -35,6 +36,17 @@ export default function LockFunds(props) {
         return "tari";
       default:
         "";
+    }
+  }
+
+  function formatTokenAmount(token, amount) {
+    switch (token) {
+      case "eth.wei":
+        return formatEther(amount);
+      case "tari":
+        return amount;
+      default:
+        0;
     }
   }
 
@@ -62,7 +74,7 @@ export default function LockFunds(props) {
   function getSwapDetails() {
     return (
       <Typography variant="body2">
-        {fromTokenAmount} {getTokenName(fromToken)}  <SyncAltIcon sx={{ fontSize: "small", verticalAlign: 'middle' }} /> {toTokenAmount} {getTokenName(toToken)}
+        {formatTokenAmount(fromToken, fromTokenAmount)} {getTokenName(fromToken)}  <SyncAltIcon sx={{ fontSize: "small", verticalAlign: 'middle' }} /> {toTokenAmount} {getTokenName(toToken)}
       </Typography>
     );
   }
@@ -143,7 +155,7 @@ export default function LockFunds(props) {
           provided_token: fromToken,
           provided_token_balance: fromTokenAmount,
           requested_token: toToken,
-          requested_token_balance: toTokenAmount,
+          requested_token_balance: toTokenAmount.toString(),
         }
       },
     };
@@ -248,7 +260,7 @@ export default function LockFunds(props) {
         </List>
 
         <Stack direction="row" alignItems="center" justifyContent="center" sx={{ marginTop: 4 }}>
-          <Typography variant="body1">You need to lock <Box component="span" fontWeight='fontWeightMedium'>{fromTokenAmount} {getTokenName(fromToken)}</Box> to begin the atomic swap</Typography>
+          <Typography variant="body1">You need to lock <Box component="span" fontWeight='fontWeightMedium'>{formatTokenAmount(fromToken, fromTokenAmount)} {getTokenName(fromToken)}</Box> to begin the atomic swap</Typography>
         </Stack>
 
         <Box sx={{ display: 'flex', justifyContent: 'center' }}>
