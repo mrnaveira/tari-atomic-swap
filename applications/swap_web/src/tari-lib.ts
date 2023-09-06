@@ -68,7 +68,7 @@ async function get_all_provider_positions(tari: TariConnection) {
     /*proof_ids":*/[]
     );
 
-    return submit_resp.result.finalize.execution_results[0].json;
+    return submit_resp.json_result[0];
 };
 
 async function withdraw(tari: TariConnection, contract, preimage) {
