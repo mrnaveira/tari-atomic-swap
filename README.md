@@ -34,7 +34,7 @@ $ cargo run --bin tari_dan_wallet_cli -- transactions submit --fee 5 --num-outpu
 The resulting component address will be needed later.
 
 
-### Ethereum matchmaking component
+### Ethereum setup
 For Ethereum HTLC smart contracts we are using [hashed-timelock-contract-ethereum](https://github.com/chatch/hashed-timelock-contract-ethereum).
 
 You can deploy it to any Ethereum network. The smart contract repository uses Truffle, so the easiest way is to start [Ganache](https://trufflesuite.com/ganache/) on port `4447` and then run:
