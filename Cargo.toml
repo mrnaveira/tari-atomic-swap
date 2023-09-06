@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "applications/swap",
+    "applications/poc",
     "applications/liquidity_daemon",
     "networks/ethereum",
     "networks/tari"

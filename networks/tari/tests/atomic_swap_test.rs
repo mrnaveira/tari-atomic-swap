@@ -1,7 +1,8 @@
 use sha2::Digest;
 use sha2::Sha256;
 use tari::contract::Preimage;
-use tari_dan_engine::runtime::ConsensusContext;
+use tari_engine_types::virtual_substate::VirtualSubstate;
+use tari_engine_types::virtual_substate::VirtualSubstateAddress;
 use tari_engine_types::{commit_result::ExecuteResult, instruction::Instruction};
 use tari_template_lib::constants::CONFIDENTIAL_TARI_RESOURCE_ADDRESS;
 use tari_template_lib::{
@@ -225,9 +226,10 @@ fn alice_can_refund() {
 
     // Bob never publishes his locking contract
     // So Alice needs to wait until after the timelock in her conctract to retrieve her funds
-    test.template_test.set_consensus_context(ConsensusContext {
-        current_epoch: timelock_c1 + 1,
-    });
+    test.template_test.set_virtual_substate(
+        VirtualSubstateAddress::CurrentEpoch,
+        VirtualSubstate::CurrentEpoch(timelock_c1 + 1),
+    );
     refund(&mut test, contract_1_component, alice).unwrap();
 }
 
@@ -249,9 +251,10 @@ fn bob_can_refund() {
 
     // Alice never withdraws funds from Bob's contract, so Bob will never know the preimage and cannot complete the swap
     // So Bob needs to wait until after the timelock in his conctract to retrieve his funds
-    test.template_test.set_consensus_context(ConsensusContext {
-        current_epoch: timelock_c2 + 1,
-    });
+    test.template_test.set_virtual_substate(
+        VirtualSubstateAddress::CurrentEpoch,
+        VirtualSubstate::CurrentEpoch(timelock_c2 + 1),
+    );
     refund(&mut test, contract_2_component, bob).unwrap();
 }
 
@@ -273,16 +276,18 @@ fn refunds_cannot_be_done_before_timelock() {
         create_lock_contract(&mut test, bob.clone(), alice.clone(), timelock_c2);
 
     // Bob should not be able to refund if his timelock has not expired
-    test.template_test.set_consensus_context(ConsensusContext {
-        current_epoch: timelock_c2,
-    });
+    test.template_test.set_virtual_substate(
+        VirtualSubstateAddress::CurrentEpoch,
+        VirtualSubstate::CurrentEpoch(timelock_c2),
+    );
     let err = refund(&mut test, contract_2_component, bob).unwrap_err();
     assert!(err.to_string().contains("Timelock not yet passed"));
 
     // Alice should not be able to refund if her timelock has not expired
-    test.template_test.set_consensus_context(ConsensusContext {
-        current_epoch: timelock_c1,
-    });
+    test.template_test.set_virtual_substate(
+        VirtualSubstateAddress::CurrentEpoch,
+        VirtualSubstate::CurrentEpoch(timelock_c1),
+    );
     let err = refund(&mut test, contract_1_component, alice).unwrap_err();
     assert!(err.to_string().contains("Timelock not yet passed"));
 }
@@ -338,9 +343,10 @@ fn it_does_not_allow_refunds_from_undesignated_users() {
     let contract_1_component = create_lock_contract(&mut test, alice, bob.clone(), timelock_c1);
 
     // No one other than Alice can refund after the timelock
-    test.template_test.set_consensus_context(ConsensusContext {
-        current_epoch: timelock_c1 + 1,
-    });
+    test.template_test.set_virtual_substate(
+        VirtualSubstateAddress::CurrentEpoch,
+        VirtualSubstate::CurrentEpoch(timelock_c1 + 1),
+    );
     let err = refund(&mut test, contract_1_component, bob).unwrap_err();
     assert!(err.to_string().contains("Access Denied"));
 }

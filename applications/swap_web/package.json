@@ -1,0 +1,33 @@
+{
+  "name": "material-vite",
+  "version": "5.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "serve": "vite preview"
+  },
+  "dependencies": {
+    "@emotion/react": "latest",
+    "@emotion/styled": "latest",
+    "@mui/icons-material": "latest",
+    "@mui/material": "latest",
+    "axios": "^1.4.0",
+    "cbor-web": "^9.0.1",
+    "crypto-js": "^4.1.1",
+    "ethers": "5.7.2",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-router-dom": "^6.15.0",
+    "tari-connector": "file:../..",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "latest",
+    "typescript": "latest",
+    "vite": "latest"
+  }
+}

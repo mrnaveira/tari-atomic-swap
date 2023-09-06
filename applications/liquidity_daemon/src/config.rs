@@ -14,11 +14,13 @@ pub struct Config {
 pub struct EthereumConfig {
     pub rpc_url: String,
     pub private_key: String,
+    pub account_address: String,
     pub contract_address: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TariConfig {
+    pub account_component: String,
     pub public_key: String,
     pub public_key_index: u64,
     pub wallet_endpoint: String,
@@ -33,6 +35,6 @@ impl Config {
             .unwrap_or_else(|_| panic!("Unable to read config file '{}'", path));
 
         serde_json::from_str(&content)
-            .unwrap_or_else(|_| panic!("'{}' file does not have a valid JSON format", path))
+            .unwrap_or_else(|e| panic!("'{}' file does not have a valid JSON format: {}", path, e))
     }
 }

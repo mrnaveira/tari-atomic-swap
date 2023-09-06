@@ -1,6 +1,7 @@
 use std::str::FromStr;
 use std::sync::Arc;
 
+use crate::config::Config;
 use crate::position_manager::PositionManager;
 use anyhow::anyhow;
 use anyhow::bail;
@@ -8,8 +9,9 @@ use ethereum::EthereumContractManager;
 use ethers::types::Address;
 use ethers::utils::hex;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, DisplayFromStr};
 use std::collections::HashMap;
-use tari::{contract::TariContractManager, liquidity::Position};
+use tari::contract::TariContractManager;
 use tari_crypto::ristretto::RistrettoPublicKey;
 use tari_crypto::tari_utilities::hex::Hex;
 use tari_template_lib::prelude::ComponentAddress;
@@ -25,6 +27,28 @@ pub struct Proposal {
     client_address: String,
     hashlock: Hashlock,
     position: Position,
+}
+
+#[serde_as]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Eq, PartialEq)]
+pub struct Position {
+    pub provided_token: String,
+    #[serde_as(as = "DisplayFromStr")]
+    pub provided_token_balance: u64,
+    pub requested_token: String,
+    #[serde_as(as = "DisplayFromStr")]
+    pub requested_token_balance: u64,
+}
+
+impl From<Position> for tari::liquidity::Position {
+    fn from(pos: Position) -> Self {
+        Self {
+            provided_token: pos.provided_token,
+            provided_token_balance: pos.provided_token_balance,
+            requested_token: pos.requested_token,
+            requested_token_balance: pos.requested_token_balance,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -44,6 +68,7 @@ pub type SwapId = Uuid;
 type SwapKvMap = HashMap<SwapId, SwapState>;
 
 pub struct SwapManager {
+    config: Config,
     // TODO: use a database to not lose ongoing swap information on restarts
     swaps: Arc<RwLock<SwapKvMap>>,
     position_manager: PositionManager,
@@ -53,11 +78,13 @@ pub struct SwapManager {
 
 impl SwapManager {
     pub fn new(
+        config: Config,
         position_manager: PositionManager,
         eth_manager: EthereumContractManager,
         tari_manager: TariContractManager,
     ) -> Self {
         Self {
+            config,
             swaps: Arc::new(RwLock::new(HashMap::new())),
             position_manager,
             eth_manager,
@@ -65,19 +92,32 @@ impl SwapManager {
         }
     }
 
-    pub async fn request_swap(&self, proposal: Proposal) -> Result<SwapId, anyhow::Error> {
+    pub async fn request_swap(
+        &self,
+        proposal: Proposal,
+    ) -> Result<(SwapId, String), anyhow::Error> {
         if self
             .position_manager
-            .is_swap_proposal_valid(&proposal.position)
+            .is_swap_proposal_valid(&proposal.position.clone().into())
             .await
         {
             let swap_id = Uuid::new_v4();
+            let provider_address = self.get_provider_address(&proposal)?;
             let swap_state = SwapState::NotStarted(proposal);
             let mut guard = self.swaps.write().await;
             guard.insert(swap_id, swap_state);
-            Ok(swap_id)
+            Ok((swap_id, provider_address))
         } else {
             bail!("Invalid proposal");
+        }
+    }
+
+    fn get_provider_address(&self, proposal: &Proposal) -> Result<String, anyhow::Error> {
+        // TODO: create enums and parsing logic for each type of token
+        match proposal.position.provided_token.as_str() {
+            "eth.wei" => Ok(self.config.ethereum.account_address.clone()),
+            "tari" => Ok(self.config.tari.account_component.clone()),
+            _ => bail!("Invalid token type"),
         }
     }
 
@@ -186,9 +226,10 @@ impl SwapManager {
         preimage: Preimage,
     ) -> Result<(), anyhow::Error> {
         // TODO: create enums and parsing logic for each type of token
-        match pending_swap.proposal.position.requested_token.as_str() {
+        match pending_swap.proposal.position.provided_token.as_str() {
             "eth.wei" => {
-                let contract_id: [u8; 32] = hex::decode(&pending_swap.client_contract_id)?
+                let contract_id_hex = &pending_swap.client_contract_id.trim_start_matches("0x");
+                let contract_id: [u8; 32] = hex::decode(contract_id_hex)?
                     .try_into()
                     .map_err(|_| anyhow!("Invalid contract_id"))?;
                 self.eth_manager.withdraw(contract_id, preimage).await?;

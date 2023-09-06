@@ -11,6 +11,7 @@ use tari_template_lib::prelude::NonFungibleAddress;
 use tari_template_lib::prelude::RistrettoPublicKeyBytes;
 use tari_transaction::SubstateRequirement;
 use tari_utilities::ByteArray;
+use tari_wallet_daemon_client::error::WalletDaemonClientError;
 use tari_wallet_daemon_client::types::TransactionSubmitRequest;
 use tari_wallet_daemon_client::types::TransactionWaitResultRequest;
 use tari_wallet_daemon_client::types::TransactionWaitResultResponse;
@@ -35,15 +36,23 @@ pub struct TariLiquidityManager {
 }
 
 impl TariLiquidityManager {
-    pub fn new(
+    pub async fn new(
         wallet_endpoint: String,
         wallet_public_key: RistrettoPublicKey,
         wallet_public_key_index: u64,
         wallet_token: String,
         lp_index_component: ComponentAddress,
         lp_position_component: Option<ComponentAddress>,
-    ) -> Result<Self, TariError> {
-        let client = WalletDaemonClient::connect(wallet_endpoint, Some(wallet_token))?;
+    ) -> Result<Self, TariLiquidityManagerError> {
+        let mut client = WalletDaemonClient::connect(wallet_endpoint, Some(wallet_token))?;
+
+        let lp_position_component = match lp_position_component {
+            Some(_) => lp_position_component,
+            None => {
+                get_lp_position_component(&mut client, &lp_index_component, &wallet_public_key)
+                    .await?
+            }
+        };
 
         Ok(Self {
             client,
@@ -52,39 +61,6 @@ impl TariLiquidityManager {
             lp_index_component,
             lp_position_component,
         })
-    }
-
-    pub async fn get_providers(
-        &mut self,
-    ) -> Result<HashMap<NonFungibleAddress, ComponentAddress>, TariLiquidityManagerError> {
-        let request = TransactionSubmitRequest {
-            signing_key_index: None,
-            fee_instructions: vec![],
-            instructions: vec![Instruction::CallMethod {
-                component_address: self.lp_index_component,
-                method: "get_providers".to_string(),
-                args: args![],
-            }],
-            inputs: vec![SubstateRequirement::new(
-                SubstateAddress::Component(self.lp_index_component),
-                None,
-            )],
-            override_inputs: false,
-            new_outputs: 0,
-            specific_non_fungible_outputs: vec![],
-            new_resources: vec![],
-            new_non_fungible_outputs: vec![],
-            new_non_fungible_index_outputs: vec![],
-            // This is a readonly operation
-            is_dry_run: true,
-            proof_ids: vec![],
-        };
-
-        let result = self.submit_dry_run_transaction(request).await?;
-        let providers = result.finalize.execution_results[0]
-            .decode::<HashMap<NonFungibleAddress, ComponentAddress>>()
-            .unwrap();
-        Ok(providers)
     }
 
     pub async fn register(
@@ -338,36 +314,19 @@ impl TariLiquidityManager {
         &mut self,
         request: TransactionSubmitRequest,
     ) -> Result<TransactionWaitResultResponse, TariError> {
-        let resp = self.client.submit_transaction(&request).await?;
-        let wait_resp = self
-            .client
-            .wait_transaction_result(TransactionWaitResultRequest {
-                transaction_id: resp.transaction_id,
-                timeout_secs: None,
-            })
-            .await?;
-        if wait_resp.timed_out {
-            return Err(TariError::TransactionTimeout {
-                transaction_id: resp.transaction_id,
-            });
-        }
-        Ok(wait_resp)
+        submit_transaction(&mut self.client, request).await
     }
 
     async fn submit_dry_run_transaction(
         &mut self,
         request: TransactionSubmitRequest,
     ) -> Result<ExecuteResult, TariError> {
-        let resp = self.client.submit_transaction(&request).await?;
-        let result = resp.result.unwrap();
-        Ok(result)
+        submit_dry_run_transaction(&mut self.client, request).await
     }
 
     pub fn build_owner_token(&self) -> NonFungibleAddress {
         let public_key = &self.wallet_public_key;
-        NonFungibleAddress::from_public_key(
-            RistrettoPublicKeyBytes::from_bytes(public_key.as_bytes()).unwrap(),
-        )
+        build_owner_token(public_key)
     }
 }
 
@@ -375,8 +334,90 @@ impl TariLiquidityManager {
 pub enum TariLiquidityManagerError {
     #[error("Tari error: {0}")]
     TariError(#[from] TariError),
+    #[error("Wallet daemon clientError error: {0}")]
+    WalletDaemonClientError(#[from] WalletDaemonClientError),
     #[error("The provider is already registered")]
     AlreadyRegistered,
     #[error("The provider is not registered")]
     Unregistered,
+}
+
+async fn submit_transaction(
+    client: &mut WalletDaemonClient,
+    request: TransactionSubmitRequest,
+) -> Result<TransactionWaitResultResponse, TariError> {
+    let resp = client.submit_transaction(&request).await?;
+    let wait_resp = client
+        .wait_transaction_result(TransactionWaitResultRequest {
+            transaction_id: resp.transaction_id,
+            // TODO: parameterize timeout in config
+            timeout_secs: Some(30),
+        })
+        .await?;
+    if wait_resp.timed_out {
+        return Err(TariError::TransactionTimeout {
+            transaction_id: resp.transaction_id,
+        });
+    }
+    Ok(wait_resp)
+}
+
+async fn submit_dry_run_transaction(
+    client: &mut WalletDaemonClient,
+    request: TransactionSubmitRequest,
+) -> Result<ExecuteResult, TariError> {
+    let resp = client.submit_transaction(&request).await?;
+    let result = resp.result.unwrap();
+    Ok(result)
+}
+
+fn build_owner_token(wallet_public_key: &RistrettoPublicKey) -> NonFungibleAddress {
+    NonFungibleAddress::from_public_key(
+        RistrettoPublicKeyBytes::from_bytes(wallet_public_key.as_bytes()).unwrap(),
+    )
+}
+
+async fn get_lp_position_component(
+    client: &mut WalletDaemonClient,
+    lp_index_component: &ComponentAddress,
+    wallet_public_key: &RistrettoPublicKey,
+) -> Result<Option<ComponentAddress>, TariLiquidityManagerError> {
+    let mut providers = get_providers(client, lp_index_component).await?;
+    let owner_token = build_owner_token(wallet_public_key);
+    let component = providers.remove(&owner_token);
+    Ok(component)
+}
+
+async fn get_providers(
+    client: &mut WalletDaemonClient,
+    lp_index_component: &ComponentAddress,
+) -> Result<HashMap<NonFungibleAddress, ComponentAddress>, TariLiquidityManagerError> {
+    let request = TransactionSubmitRequest {
+        signing_key_index: None,
+        fee_instructions: vec![],
+        instructions: vec![Instruction::CallMethod {
+            component_address: *lp_index_component,
+            method: "get_providers".to_string(),
+            args: args![],
+        }],
+        inputs: vec![SubstateRequirement::new(
+            SubstateAddress::Component(*lp_index_component),
+            None,
+        )],
+        override_inputs: false,
+        new_outputs: 0,
+        specific_non_fungible_outputs: vec![],
+        new_resources: vec![],
+        new_non_fungible_outputs: vec![],
+        new_non_fungible_index_outputs: vec![],
+        // This is a readonly operation
+        is_dry_run: true,
+        proof_ids: vec![],
+    };
+
+    let result = submit_dry_run_transaction(client, request).await?;
+    let providers = result.finalize.execution_results[0]
+        .decode::<HashMap<NonFungibleAddress, ComponentAddress>>()
+        .unwrap();
+    Ok(providers)
 }

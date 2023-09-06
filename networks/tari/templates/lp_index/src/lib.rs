@@ -1,6 +1,21 @@
 use tari_template_lib::prelude::*;
 use tari_template_abi::rust::collections::HashMap;
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct Position {
+    pub provided_token: String,
+    pub provided_token_balance: u64,
+    pub requested_token: String,
+    pub requested_token_balance: u64,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ProviderPosition {
+    network_address: String,
+    owner_token: NonFungibleAddress,
+    positions: Vec<Position>,
+}
+
 #[template]
 mod lp_index_template {
     use super::*;
@@ -35,6 +50,25 @@ mod lp_index_template {
 
         pub fn get_providers(&self) -> HashMap<NonFungibleAddress, ComponentAddress> {
             self.providers.clone()
+        }
+
+        pub fn get_all_provider_positions(&self) -> Vec<ProviderPosition> {
+            let mut provider_positions = vec![];
+
+            for (owner_token, component_addr) in &self.providers {
+                let component = ComponentManager::get(*component_addr);
+
+                let network_address: String = component.call("get_network_address".to_string(), vec![]);
+                let positions: Vec<Position> = component.call("get_positions".to_string(), vec![]);
+                
+                provider_positions.push(ProviderPosition {
+                    owner_token: owner_token.clone(),
+                    network_address,
+                    positions
+                });
+            }
+
+            return provider_positions;
         }
     }
 }
