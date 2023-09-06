@@ -6,9 +6,6 @@ import Stack from '@mui/material/Stack';
 import { formatEther } from 'ethers/lib/utils';
 
 export default function LockFunds(props) {
-  console.log(props.swapDetails);
-  console.log(props.ongoingSwap);
-
   const expected_balance = props.swapDetails.bestSwap.expected_balance;
   const fromToken = props.swapDetails.fromToken;
   const fromTokenAmount = props.swapDetails.fromTokenAmount;

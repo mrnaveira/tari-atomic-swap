@@ -113,7 +113,6 @@ impl SwapManager {
     }
 
     fn get_provider_address(&self, proposal: &Proposal) -> Result<String, anyhow::Error> {
-        eprintln!("get_provider_address: {:?}", proposal);
         // TODO: create enums and parsing logic for each type of token
         match proposal.position.provided_token.as_str() {
             "eth.wei" => Ok(self.config.ethereum.account_address.clone()),
@@ -127,17 +126,13 @@ impl SwapManager {
         swap_id: String,
         contract_id: ContractId,
     ) -> Result<ContractId, anyhow::Error> {
-        eprintln!("request_lock_funds");
         let swap_id = SwapId::from_str(&swap_id)?;
-        eprintln!("swap_id: {}", swap_id);
         let swap_state = self.get_swap_state(&swap_id).await?;
-        eprintln!("swap_state: {:?}", swap_state);
 
         let mut write_guard = self.swaps.write().await;
 
         match swap_state {
             SwapState::NotStarted(proposal) => {
-                eprintln!("contract_id: {:?}", contract_id);
                 self.validate_contract_id(&contract_id, &proposal).await?;
                 let our_contract_id = self.create_lock_contract(&proposal).await?;
                 write_guard.insert(
@@ -159,22 +154,17 @@ impl SwapManager {
         swap_id: String,
         preimage: Preimage,
     ) -> Result<(), anyhow::Error> {
-        eprintln!("push_preimage");
         // TODO: we need a constant polling process watching the network to not rely on the client sending the preimage
         let swap_id = SwapId::from_str(&swap_id)?;
-        eprintln!("swap_id: {}", swap_id);
         let swap_state = self.get_swap_state(&swap_id).await?;
-        eprintln!("swap_state: {:?}", swap_state);
 
         let mut write_guard = self.swaps.write().await;
 
         match swap_state {
             SwapState::Pending(pending) => {
-                eprintln!("preimage: {:?}", preimage);
                 self.withdraw_funds(&pending, preimage).await?;
                 write_guard.remove(&swap_id);
                 // TODO: update published balances
-                eprintln!("sucess");
                 Ok(())
             }
             _ => bail!("Swap has not started yet"),
@@ -200,7 +190,6 @@ impl SwapManager {
     }
 
     async fn create_lock_contract(&self, proposal: &Proposal) -> Result<ContractId, anyhow::Error> {
-        eprintln!("create_lock_contract: {:?}", proposal);
         // TODO: create enums and parsing logic for each type of token
         match proposal.position.requested_token.as_str() {
             "eth.wei" => {
@@ -236,7 +225,6 @@ impl SwapManager {
         pending_swap: &PendingSwap,
         preimage: Preimage,
     ) -> Result<(), anyhow::Error> {
-        eprintln!("withdraw_funds");
         // TODO: create enums and parsing logic for each type of token
         match pending_swap.proposal.position.provided_token.as_str() {
             "eth.wei" => {
@@ -248,11 +236,8 @@ impl SwapManager {
                 Ok(())
             }
             "tari" => {
-                eprintln!("tari");
-                eprintln!("pending_swap: {:?}", pending_swap);
                 let mut write_guard = self.tari_manager.write().await;
                 let contract_id = ComponentAddress::from_str(&pending_swap.client_contract_id)?;
-                eprintln!("contract_id: {}", contract_id);
                 write_guard.withdraw(contract_id, preimage).await?;
                 Ok(())
             }

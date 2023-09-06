@@ -24,7 +24,6 @@ async function get_best_match(tari: TariConnection, provided_token, provided_tok
         // expected tokens to receive
         let ratio = position.provided_token_balance / position.requested_token_balance;
         let expected_balance = Math.floor(provided_token_balance * ratio);
-        console.log({position, ratio, expected_balance, provided_token_balance});
 
         // data for holding this provider's best possible match for our request
         const provider_best_match = {
@@ -72,18 +71,13 @@ async function get_all_provider_positions(tari: TariConnection) {
 };
 
 async function withdraw(tari: TariConnection, contract, preimage) {
-    console.log("tari-lib withdraw");
     let res = await tari.sendMessage("accounts.get_default", tari.token);
-    console.log({res});
     let key_index = res.account.key_index;
     let account = res.account.address.Component;
-    //let preimage_cbor = [152,32, ...preimage];
-    console.log({preimage});
     let preimage_cbor = encode_cbor(preimage);
-    console.log({preimage_cbor});
 
     let submit_resp = await tari.sendMessage("transactions.submit", tari.token,
-    /*signing_key_index: */ null,
+    /*signing_key_index: */ key_index,
     /*fee_instructions":*/[
     ],
     /*instructions":*/[
@@ -117,7 +111,7 @@ async function withdraw(tari: TariConnection, contract, preimage) {
     /*is_dry_run":*/ false,
     /*proof_ids":*/[]
     );
-    console.log({submit_resp});
+    //console.log({submit_resp});
 
     //let wait_resp = await tari.sendMessage("transactions.wait_result", tari.token, submit_resp.hash, 15);
     //console.log({ wait_resp });

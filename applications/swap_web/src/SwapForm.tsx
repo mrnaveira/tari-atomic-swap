@@ -28,7 +28,6 @@ export default function SwapForm() {
   const navigate = useNavigate();
 
   const location = useLocation();
-  console.log(location.state);
   const providers = location.state.providers;
   const tari = window.tari;
 
@@ -40,17 +39,13 @@ export default function SwapForm() {
   const [bestSwap, setBestSwap] = React.useState(null);
 
   useEffect(() => {
-    console.log("useEffect ", {fromToken, fromTokenAmount});
     updateBestSwap();
   }, [fromToken, fromTokenAmount]);  
 
   const updateBestSwap = async () => {
-    console.log({providers});
     if(providers && providers.length !== 0 && fromTokenAmount != '0' ) {
-      console.log({fromToken, fromTokenAmount, toToken});
       let bestSwap = await matchmaking.get_best_match(tari, fromToken, fromTokenAmount, toToken);
       setBestSwap(bestSwap);
-      console.log("updateBestSwap - ", bestSwap.expected_balance);
       setToTokenAmount(bestSwap.expected_balance);
     }
   }
@@ -76,8 +71,6 @@ export default function SwapForm() {
   };
 
   const handleMetamaskConnection = (data) => {
-    console.log({data});
-
     // truncate decimal places in the user's balance
     const remainder = data.balance.mod(1e14);
     const truncatedBalance = data.balance.sub(remainder);

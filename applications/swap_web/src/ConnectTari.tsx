@@ -25,7 +25,6 @@ export default function ConnectTari() {
   }
 
   const onTariConnectButton = (tari: TariConnection) => {
-		console.log("OnOpen");
 		setTari(tari);
 		window.tari = tari;
 	};
@@ -35,7 +34,7 @@ export default function ConnectTari() {
 		await new Promise(f => setTimeout(f, 1000));
 		window.tariConnected = true;
     let poviders = await matchmaking.get_all_provider_positions(tari);
-    console.log({poviders});
+    //console.log({poviders});
     setProviders(providers);
     goToSwap(poviders);
 	};

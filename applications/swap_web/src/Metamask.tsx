@@ -24,13 +24,10 @@ const Metamask = (props) => {
     }
 
     const accountChangedHandler = async (signer) => {
-        console.log({signer});
         setAccount(signer);
-
         const address = await signer.getAddress();
         const balance = await provider.getBalance(address);
         setBalance(balance);
-        console.log(ethers.utils.formatEther(balance));
         props.onConnection({balance});
     }
 

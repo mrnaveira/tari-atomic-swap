@@ -10,9 +10,6 @@ import lock_abi from '../../../../networks/ethereum/abi/HashedTimelock.json';
 import * as tari_lib from '../tari-lib';
 
 export default function Withdraw(props) {
-  console.log(props.swapDetails);
-  console.log(props.ongoingSwap);
-
   let ethereum_lock_contract_address: string = import.meta.env.VITE_ETHEREUM_LOCK_CONTRACT;
 
   const provider_address = props.swapDetails.bestSwap.network_address;
@@ -42,23 +39,16 @@ export default function Withdraw(props) {
 
   const withdrawProviderFunds = async (contract_id_provider, toToken, preimage) => {
     // TODO: should return and error if the contract does not exist or does not have the requested amount
-    console.log("withdrawProviderFunds");
-    console.log({contract_id_provider, toToken, preimage});
     switch (toToken) {
       case "eth.wei":
-        console.log("withdrawProviderFunds - eth");
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = await provider.getSigner();
         const contract = new ethers.Contract(ethereum_lock_contract_address, lock_abi, signer);
         const transaction = await contract.withdraw(contract_id_provider, preimage);
         const transactionReceipt = await transaction.wait();
-        console.log({transactionReceipt});
         return true;
       case "tari":
-        console.log("withdrawProviderFunds - tari");
-        //const preimage_array = hex_to_int_array(preimage);
-        let res = await tari_lib.withdraw(window.tari, contract_id_provider, preimage);
-        console.log({res});
+        await tari_lib.withdraw(window.tari, contract_id_provider, preimage);
         return true;
       default:
         false;
@@ -66,10 +56,6 @@ export default function Withdraw(props) {
   }
 
   const pushPreimageToProvider = async (provider_address, swap_id, preimage) => {
-    console.log("pushPreimageToProvider");
-    console.log({provider_address, swap_id, preimage});
-    //let preimage_array = hex_to_int_array(preimage);
-
     const body = {
       jsonrpc: "2.0",
       method: "push_preimage",
@@ -81,11 +67,8 @@ export default function Withdraw(props) {
     };
 
     try {
-      let res = await axios.post(`${provider_address}/json_rpc`, body);
-      console.log({res});
-      console.log("success");
+      await axios.post(`${provider_address}/json_rpc`, body);
     } catch (error) {
-      console.log("error");
       console.log({error});
     }
 

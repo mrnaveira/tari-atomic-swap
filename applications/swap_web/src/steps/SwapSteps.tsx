@@ -20,10 +20,6 @@ const steps = ['Lock funds', 'Withdraw', 'Summary'];
 
 export default function SwapSteps() {
   const location = useLocation();
-  console.log(location.state);
-  console.log(window.tari);
-  console.log(window.ethereum);
-
   const navigate = useNavigate();
 
   const [activeStep, setActiveStep] = React.useState(0);
