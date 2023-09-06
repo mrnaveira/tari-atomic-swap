@@ -1,4 +1,5 @@
 # tari-atomic-swap
+**This is NOT production ready yet, do not use it with real funds**.
 
 This project is a proof of concept of a user-friendly atomic swap (HTLC) architecture between Ethereum and [Tari](https://github.com/tari-project/tari-dan).
 
@@ -7,7 +8,7 @@ It has three main components:
 * A swap web application (React)
 * A matchmaking protocol between liquidity providers and web users, implemented using Tari templates
 
-**This is NOT production ready yet, do not use it with real funds**.
+Please review the [project tasks](https://github.com/users/mrnaveira/projects/1) for improvements to do and missing features.
 
 ## Getting started
 
