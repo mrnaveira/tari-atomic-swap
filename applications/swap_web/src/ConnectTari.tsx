@@ -2,7 +2,6 @@ import * as React from 'react';
 import AppBar from '@mui/material/AppBar';
 import Container from '@mui/material/Container';
 import Typography from '@mui/material/Typography';
-import Box from '@mui/material/Box';
 import Toolbar from '@mui/material/Toolbar';
 import { TariConnection, TariConnectorButton, TariPermissionAccountInfo, TariPermissionKeyList, TariPermissionTransactionGet, TariPermissionTransactionSend, TariPermissions } from 'tari-connector/src/index';
 import { useNavigate } from "react-router-dom";
@@ -10,7 +9,6 @@ import { useNavigate } from "react-router-dom";
 import Stack from '@mui/material/Stack';
 
 import * as matchmaking from './tari-lib';
-import { useEffect } from 'react';
 
 export default function ConnectTari() {
   let signaling_server_address = import.meta.env.VITE_TARI_SIGNALING_SERVER_ADDRESS || "http://localhost:9100";
@@ -24,17 +22,13 @@ export default function ConnectTari() {
     navigate("/swap", { state: { providers } });
   }
 
-  const onTariConnectButton = (tari: TariConnection) => {
+  const onTariConnectButton = async (tari: TariConnection) => {
 		setTari(tari);
-		window.tari = tari;
+    window.tari = tari;
 	};
 
-  const setTariAnswer = async () => {
-		tari?.setAnswer();
-		await new Promise(f => setTimeout(f, 1000));
-		window.tariConnected = true;
-    let poviders = await matchmaking.get_all_provider_positions(tari);
-    //console.log({poviders});
+  const onTariConnectSuccess = async () => {
+    let poviders = await matchmaking.get_all_provider_positions(window.tari);
     setProviders(providers);
     goToSwap(poviders);
 	};
@@ -78,8 +72,8 @@ export default function ConnectTari() {
 						permissions={permissions}
 						optional_permissions={optional_permissions}
 						onOpen={onTariConnectButton}
+            onConnection={onTariConnectSuccess}
 					/>
-					{tari ? <button onClick={async () => { await setTariAnswer(); }}>SetAnswer</button> : null}
         </Stack>
       </Container>
 
